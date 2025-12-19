@@ -127,6 +127,17 @@ $stmt = $conn->prepare("SELECT * FROM radio_history WHERE station_id = ? ORDER B
 $stmt->execute([$station['id']]);
 $history = $stmt->fetchAll();
 
+// Get radio mode and audio tracks (for upload mode)
+$radio_mode = $station['radio_mode'] ?? 'stream';
+$shuffle_enabled = $station['radio_shuffle'] ?? 0;
+$audio_tracks = [];
+
+if ($radio_mode == 'upload') {
+    $stmt = $conn->prepare("SELECT id, title, artist, album, filename, duration FROM radio_audio_tracks WHERE station_id = ? AND is_active = 1 ORDER BY sort_order ASC");
+    $stmt->execute([$station['id']]);
+    $audio_tracks = $stmt->fetchAll();
+}
+
 // Colors
 $primary_color = $station['radio_color_primary'] ?? '#6366f1';
 $secondary_color = $station['radio_color_secondary'] ?? '#8b5cf6';
@@ -820,10 +831,208 @@ $genre = $station['radio_genre'] ?? '';
         const stationData = {
             id: <?php echo $station['id']; ?>,
             name: <?php echo json_encode($radio_name); ?>,
+            mode: <?php echo json_encode($radio_mode); ?>,
+            shuffle: <?php echo $shuffle_enabled ? 'true' : 'false'; ?>,
             streamUrl: <?php echo json_encode($stream['stream_url'] ?? ''); ?>,
-            fallbackUrl: <?php echo json_encode($stream['fallback_url'] ?? ''); ?>
+            fallbackUrl: <?php echo json_encode($stream['fallback_url'] ?? ''); ?>,
+            audioTracks: <?php echo json_encode(array_map(function($track) {
+                return [
+                    'id' => $track['id'],
+                    'title' => $track['title'],
+                    'artist' => $track['artist'],
+                    'album' => $track['album'],
+                    'url' => '../uploads/radio/audio/' . $track['filename']
+                ];
+            }, $audio_tracks)); ?>
         };
     </script>
-    <script src="../assets/js/radio-player.js"></script>
+    <script>
+        // Radio Player for both Stream and Upload modes
+        class RadioPlayer {
+            constructor(data) {
+                this.data = data;
+                this.audio = document.getElementById('audioPlayer');
+                this.playButton = document.getElementById('playButton');
+                this.visualizer = document.getElementById('visualizer');
+                this.volumeSlider = document.getElementById('volumeSlider');
+                this.trackTitle = document.getElementById('trackTitle');
+                this.trackArtist = document.getElementById('trackArtist');
+                this.errorMessage = document.getElementById('errorMessage');
+
+                this.isPlaying = false;
+                this.currentTrackIndex = 0;
+                this.playlist = data.audioTracks || [];
+
+                // Shuffle if enabled
+                if (data.shuffle && this.playlist.length > 0) {
+                    this.shufflePlaylist();
+                }
+
+                this.init();
+            }
+
+            init() {
+                // Set initial volume
+                this.audio.volume = this.volumeSlider.value / 100;
+
+                // Play button click
+                this.playButton.addEventListener('click', () => this.togglePlay());
+
+                // Volume change
+                this.volumeSlider.addEventListener('input', (e) => {
+                    this.audio.volume = e.target.value / 100;
+                });
+
+                // Audio events
+                this.audio.addEventListener('play', () => this.onPlay());
+                this.audio.addEventListener('pause', () => this.onPause());
+                this.audio.addEventListener('ended', () => this.onEnded());
+                this.audio.addEventListener('error', (e) => this.onError(e));
+
+                // Quality selector (for stream mode)
+                document.querySelectorAll('.quality-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const url = e.target.dataset.url;
+                        if (url) {
+                            document.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('active'));
+                            e.target.classList.add('active');
+                            this.data.streamUrl = url;
+                            if (this.isPlaying) {
+                                this.audio.src = url;
+                                this.audio.play();
+                            }
+                        }
+                    });
+                });
+
+                // Set source based on mode
+                if (this.data.mode === 'upload' && this.playlist.length > 0) {
+                    this.loadTrack(0);
+                } else if (this.data.streamUrl) {
+                    this.audio.src = this.data.streamUrl;
+                }
+            }
+
+            shufflePlaylist() {
+                for (let i = this.playlist.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.playlist[i], this.playlist[j]] = [this.playlist[j], this.playlist[i]];
+                }
+            }
+
+            loadTrack(index) {
+                if (this.playlist.length === 0) return;
+
+                this.currentTrackIndex = index % this.playlist.length;
+                const track = this.playlist[this.currentTrackIndex];
+
+                this.audio.src = track.url;
+                this.updateNowPlaying(track);
+            }
+
+            updateNowPlaying(track) {
+                if (this.trackTitle) {
+                    this.trackTitle.textContent = track.title || this.data.name;
+                }
+                if (this.trackArtist) {
+                    this.trackArtist.textContent = track.artist || '';
+                }
+
+                // Update media session for lock screen
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: track.title || this.data.name,
+                        artist: track.artist || '',
+                        album: track.album || this.data.name
+                    });
+                }
+            }
+
+            togglePlay() {
+                if (this.isPlaying) {
+                    this.audio.pause();
+                } else {
+                    this.audio.play().catch(e => {
+                        console.error('Play failed:', e);
+                        this.showError();
+                    });
+                }
+            }
+
+            onPlay() {
+                this.isPlaying = true;
+                this.playButton.classList.add('playing');
+                this.visualizer.classList.add('playing');
+                this.hideError();
+            }
+
+            onPause() {
+                this.isPlaying = false;
+                this.playButton.classList.remove('playing');
+                this.visualizer.classList.remove('playing');
+            }
+
+            onEnded() {
+                // Auto-advance to next track (upload mode)
+                if (this.data.mode === 'upload' && this.playlist.length > 0) {
+                    this.nextTrack();
+                }
+            }
+
+            nextTrack() {
+                this.loadTrack(this.currentTrackIndex + 1);
+                this.audio.play().catch(e => console.error('Auto-play failed:', e));
+            }
+
+            previousTrack() {
+                this.loadTrack(this.currentTrackIndex - 1 + this.playlist.length);
+                this.audio.play().catch(e => console.error('Play failed:', e));
+            }
+
+            onError(e) {
+                console.error('Audio error:', e);
+
+                // Try fallback for stream mode
+                if (this.data.mode === 'stream' && this.data.fallbackUrl && this.audio.src !== this.data.fallbackUrl) {
+                    console.log('Trying fallback URL...');
+                    this.audio.src = this.data.fallbackUrl;
+                    if (this.isPlaying) {
+                        this.audio.play().catch(err => this.showError());
+                    }
+                } else if (this.data.mode === 'upload' && this.playlist.length > 1) {
+                    // Skip to next track if current fails
+                    console.log('Skipping broken track...');
+                    setTimeout(() => this.nextTrack(), 1000);
+                } else {
+                    this.showError();
+                }
+            }
+
+            showError() {
+                if (this.errorMessage) {
+                    this.errorMessage.style.display = 'block';
+                }
+            }
+
+            hideError() {
+                if (this.errorMessage) {
+                    this.errorMessage.style.display = 'none';
+                }
+            }
+        }
+
+        // Initialize player
+        const player = new RadioPlayer(stationData);
+
+        // Media session controls (for lock screen)
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', () => player.togglePlay());
+            navigator.mediaSession.setActionHandler('pause', () => player.togglePlay());
+            if (stationData.mode === 'upload') {
+                navigator.mediaSession.setActionHandler('nexttrack', () => player.nextTrack());
+                navigator.mediaSession.setActionHandler('previoustrack', () => player.previousTrack());
+            }
+        }
+    </script>
 </body>
 </html>

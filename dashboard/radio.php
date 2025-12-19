@@ -226,6 +226,115 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && verify_csrf_token($_POST['csrf_token
 
         $success = "Now playing updated!";
     }
+
+    // Upload audio track
+    if ($action == 'upload_audio') {
+        if (isset($_FILES['audio_file']) && $_FILES['audio_file']['error'] == 0) {
+            $allowed = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a', 'audio/x-m4a'];
+            $file_type = $_FILES['audio_file']['type'];
+
+            if (in_array($file_type, $allowed) || preg_match('/audio/', $file_type)) {
+                $original_name = $_FILES['audio_file']['name'];
+                $ext = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+                $filename = 'audio_' . $station_id . '_' . time() . '_' . uniqid() . '.' . $ext;
+                $upload_dir = UPLOAD_PATH . 'radio/audio/';
+
+                if (!file_exists($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+
+                if (move_uploaded_file($_FILES['audio_file']['tmp_name'], $upload_dir . $filename)) {
+                    $title = trim($_POST['track_title'] ?? pathinfo($original_name, PATHINFO_FILENAME));
+                    $artist = trim($_POST['track_artist'] ?? '');
+                    $album = trim($_POST['track_album'] ?? '');
+                    $genre = trim($_POST['track_genre'] ?? '');
+                    $file_size = $_FILES['audio_file']['size'];
+
+                    // Get max sort order
+                    $stmt = $conn->prepare("SELECT MAX(sort_order) as max_order FROM radio_audio_tracks WHERE station_id = ?");
+                    $stmt->execute([$station_id]);
+                    $max_order = $stmt->fetch()['max_order'] ?? 0;
+
+                    $stmt = $conn->prepare("INSERT INTO radio_audio_tracks
+                        (station_id, title, artist, album, genre, filename, original_filename, file_size, file_type, sort_order)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $station_id, $title, $artist, $album, $genre,
+                        $filename, $original_name, $file_size, $file_type, $max_order + 1
+                    ]);
+
+                    $success = "Audio track uploaded successfully!";
+                } else {
+                    $errors[] = "Failed to upload audio file.";
+                }
+            } else {
+                $errors[] = "Invalid audio file format. Allowed: MP3, WAV, OGG, AAC, M4A";
+            }
+        } else {
+            $errors[] = "Please select an audio file to upload.";
+        }
+    }
+
+    // Update audio track
+    if ($action == 'update_audio') {
+        $track_id = (int)($_POST['track_id'] ?? 0);
+        $title = trim($_POST['track_title'] ?? '');
+        $artist = trim($_POST['track_artist'] ?? '');
+        $album = trim($_POST['track_album'] ?? '');
+        $genre = trim($_POST['track_genre'] ?? '');
+
+        if ($track_id > 0 && !empty($title)) {
+            $stmt = $conn->prepare("UPDATE radio_audio_tracks SET title = ?, artist = ?, album = ?, genre = ? WHERE id = ? AND station_id = ?");
+            $stmt->execute([$title, $artist, $album, $genre, $track_id, $station_id]);
+            $success = "Track updated successfully!";
+        }
+    }
+
+    // Delete audio track
+    if ($action == 'delete_audio') {
+        $track_id = (int)($_POST['track_id'] ?? 0);
+
+        // Get filename first
+        $stmt = $conn->prepare("SELECT filename FROM radio_audio_tracks WHERE id = ? AND station_id = ?");
+        $stmt->execute([$track_id, $station_id]);
+        $track = $stmt->fetch();
+
+        if ($track) {
+            // Delete file
+            $file_path = UPLOAD_PATH . 'radio/audio/' . $track['filename'];
+            if (file_exists($file_path)) {
+                unlink($file_path);
+            }
+
+            // Delete from database
+            $stmt = $conn->prepare("DELETE FROM radio_audio_tracks WHERE id = ? AND station_id = ?");
+            $stmt->execute([$track_id, $station_id]);
+            $success = "Track deleted successfully!";
+        }
+    }
+
+    // Toggle audio track
+    if ($action == 'toggle_audio') {
+        $track_id = (int)($_POST['track_id'] ?? 0);
+        $stmt = $conn->prepare("UPDATE radio_audio_tracks SET is_active = NOT is_active WHERE id = ? AND station_id = ?");
+        $stmt->execute([$track_id, $station_id]);
+    }
+
+    // Update radio mode
+    if ($action == 'update_radio_mode') {
+        $radio_mode = $_POST['radio_mode'] ?? 'stream';
+        $radio_shuffle = isset($_POST['radio_shuffle']) ? 1 : 0;
+
+        $stmt = $conn->prepare("UPDATE stations SET radio_mode = ?, radio_shuffle = ? WHERE id = ?");
+        $stmt->execute([$radio_mode, $radio_shuffle, $station_id]);
+
+        $success = "Radio mode updated!";
+
+        // Refresh station data
+        $stmt = $conn->prepare("SELECT * FROM stations WHERE id = ?");
+        $stmt->execute([$station_id]);
+        $station = $stmt->fetch();
+    }
 }
 
 // Get streams
@@ -247,6 +356,15 @@ $now_playing = $stmt->fetch();
 $stmt = $conn->prepare("SELECT * FROM radio_history WHERE station_id = ? ORDER BY played_at DESC LIMIT 10");
 $stmt->execute([$station_id]);
 $history = $stmt->fetchAll();
+
+// Get audio tracks
+$stmt = $conn->prepare("SELECT * FROM radio_audio_tracks WHERE station_id = ? ORDER BY sort_order ASC, created_at DESC");
+$stmt->execute([$station_id]);
+$audio_tracks = $stmt->fetchAll();
+
+// Calculate total tracks and size
+$total_tracks = count($audio_tracks);
+$total_audio_size = array_sum(array_column($audio_tracks, 'file_size'));
 
 // Get current listener count
 $stmt = $conn->prepare("SELECT COUNT(*) as count FROM radio_listeners WHERE station_id = ? AND last_ping > DATE_SUB(NOW(), INTERVAL 2 MINUTE)");
@@ -417,6 +535,69 @@ $flash = get_flash();
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        .audio-tracks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .audio-track-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .audio-track-item:hover {
+            background: #f3f4f6;
+        }
+        .audio-track-item.disabled {
+            opacity: 0.5;
+        }
+        .track-number {
+            width: 30px;
+            height: 30px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+        .track-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .track-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .track-meta {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .track-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        @media (max-width: 768px) {
+            .audio-track-item {
+                flex-wrap: wrap;
+            }
+            .track-actions {
+                width: 100%;
+                margin-top: 0.5rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -479,7 +660,8 @@ $flash = get_flash();
             <!-- Tabs -->
             <div class="tabs">
                 <button class="tab active" data-tab="settings">Settings</button>
-                <button class="tab" data-tab="streams">Streams</button>
+                <button class="tab" data-tab="audio">Audio Library</button>
+                <button class="tab" data-tab="streams">External Streams</button>
                 <button class="tab" data-tab="schedule">Schedule</button>
                 <button class="tab" data-tab="nowplaying">Now Playing</button>
             </div>
@@ -587,11 +769,150 @@ $flash = get_flash();
                 </div>
             </div>
 
+            <!-- Audio Library Tab -->
+            <div class="tab-content" id="tab-audio">
+                <!-- Radio Mode Card -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">Radio Mode</h2>
+                    </div>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                        <input type="hidden" name="action" value="update_radio_mode">
+
+                        <div class="form-group">
+                            <label>Content Source</label>
+                            <select name="radio_mode" style="max-width: 300px;">
+                                <option value="upload" <?php echo ($station['radio_mode'] ?? 'stream') == 'upload' ? 'selected' : ''; ?>>
+                                    Uploaded Audio Files (Self-Contained)
+                                </option>
+                                <option value="stream" <?php echo ($station['radio_mode'] ?? 'stream') == 'stream' ? 'selected' : ''; ?>>
+                                    External Stream (Shoutcast/Icecast)
+                                </option>
+                            </select>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                Choose "Uploaded Audio Files" to play your own music without external streaming services
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="radio_shuffle" <?php echo ($station['radio_shuffle'] ?? 0) ? 'checked' : ''; ?>>
+                                Shuffle playback (randomize track order)
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn">Save Mode</button>
+                    </form>
+                </div>
+
+                <!-- Upload Form -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">Upload Audio</h2>
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                        <input type="hidden" name="action" value="upload_audio">
+
+                        <div class="form-group">
+                            <label>Audio File *</label>
+                            <input type="file" name="audio_file" accept="audio/*" required>
+                            <small style="color: #6b7280;">Supported: MP3, WAV, OGG, AAC, M4A (Max 50MB)</small>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Track Title</label>
+                                <input type="text" name="track_title" placeholder="Leave empty to use filename">
+                            </div>
+                            <div class="form-group">
+                                <label>Artist</label>
+                                <input type="text" name="track_artist" placeholder="Artist name">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Album</label>
+                                <input type="text" name="track_album" placeholder="Album name">
+                            </div>
+                            <div class="form-group">
+                                <label>Genre</label>
+                                <input type="text" name="track_genre" placeholder="Pop, Rock, Jazz...">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn">Upload Track</button>
+                    </form>
+                </div>
+
+                <!-- Audio Tracks List -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Your Audio Library</h2>
+                        <span style="color: #6b7280;">
+                            <?php echo $total_tracks; ?> tracks &bull; <?php echo format_file_size($total_audio_size); ?>
+                        </span>
+                    </div>
+
+                    <?php if (empty($audio_tracks)): ?>
+                        <div style="text-align: center; padding: 3rem; color: #6b7280;">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem; opacity: 0.5;">
+                                <path d="M9 18V5l12-2v13"/>
+                                <circle cx="6" cy="18" r="3"/>
+                                <circle cx="18" cy="16" r="3"/>
+                            </svg>
+                            <p>No audio tracks uploaded yet.</p>
+                            <p style="font-size: 0.875rem;">Upload your first track above to get started!</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="audio-tracks-list">
+                            <?php foreach ($audio_tracks as $index => $track): ?>
+                            <div class="audio-track-item <?php echo !$track['is_active'] ? 'disabled' : ''; ?>">
+                                <div class="track-number"><?php echo $index + 1; ?></div>
+                                <div class="track-info">
+                                    <div class="track-title"><?php echo clean($track['title']); ?></div>
+                                    <div class="track-meta">
+                                        <?php if ($track['artist']): ?>
+                                            <span><?php echo clean($track['artist']); ?></span>
+                                        <?php endif; ?>
+                                        <?php if ($track['album']): ?>
+                                            <span>&bull; <?php echo clean($track['album']); ?></span>
+                                        <?php endif; ?>
+                                        <span>&bull; <?php echo format_file_size($track['file_size']); ?></span>
+                                    </div>
+                                </div>
+                                <div class="track-actions">
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                        <input type="hidden" name="action" value="toggle_audio">
+                                        <input type="hidden" name="track_id" value="<?php echo $track['id']; ?>">
+                                        <button type="submit" class="btn btn-small btn-secondary">
+                                            <?php echo $track['is_active'] ? 'Disable' : 'Enable'; ?>
+                                        </button>
+                                    </form>
+                                    <button class="btn btn-small" onclick='editAudioTrack(<?php echo json_encode($track); ?>)'>Edit</button>
+                                    <form method="POST" style="display: inline;" onsubmit="return confirm('Delete this track?');">
+                                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                        <input type="hidden" name="action" value="delete_audio">
+                                        <input type="hidden" name="track_id" value="<?php echo $track['id']; ?>">
+                                        <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
             <!-- Streams Tab -->
             <div class="tab-content" id="tab-streams">
                 <div class="card">
                     <div class="card-header">
-                        <h2 class="card-title">Audio Streams</h2>
+                        <h2 class="card-title">External Audio Streams</h2>
                         <button class="btn" onclick="showStreamModal()">Add Stream</button>
                     </div>
 
@@ -837,6 +1158,45 @@ $flash = get_flash();
         </div>
     </div>
 
+    <!-- Audio Track Edit Modal -->
+    <div id="audioModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
+            <div style="padding: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+                <h3>Edit Track</h3>
+            </div>
+            <form method="POST" style="padding: 1.5rem;">
+                <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                <input type="hidden" name="action" value="update_audio">
+                <input type="hidden" name="track_id" id="editTrackId" value="0">
+
+                <div class="form-group">
+                    <label>Track Title *</label>
+                    <input type="text" name="track_title" id="editTrackTitle" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Artist</label>
+                    <input type="text" name="track_artist" id="editTrackArtist">
+                </div>
+
+                <div class="form-group">
+                    <label>Album</label>
+                    <input type="text" name="track_album" id="editTrackAlbum">
+                </div>
+
+                <div class="form-group">
+                    <label>Genre</label>
+                    <input type="text" name="track_genre" id="editTrackGenre">
+                </div>
+
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeAudioModal()">Cancel</button>
+                    <button type="submit" class="btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Schedule Modal -->
     <div id="scheduleModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
         <div style="background: white; border-radius: 12px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
@@ -999,6 +1359,24 @@ $flash = get_flash();
                 alert('URL copied to clipboard!');
             });
         }
+
+        // Audio Modal
+        function editAudioTrack(track) {
+            document.getElementById('editTrackId').value = track.id;
+            document.getElementById('editTrackTitle').value = track.title;
+            document.getElementById('editTrackArtist').value = track.artist || '';
+            document.getElementById('editTrackAlbum').value = track.album || '';
+            document.getElementById('editTrackGenre').value = track.genre || '';
+            document.getElementById('audioModal').style.display = 'flex';
+        }
+
+        function closeAudioModal() {
+            document.getElementById('audioModal').style.display = 'none';
+        }
+
+        document.getElementById('audioModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('audioModal')) closeAudioModal();
+        });
     </script>
 </body>
 </html>
