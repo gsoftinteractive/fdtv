@@ -1,0 +1,15 @@
+# Database config with credentials
+config/database.php
+
+# Uploaded files
+/uploads/*
+!/uploads/.gitkeep
+
+# System files
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/

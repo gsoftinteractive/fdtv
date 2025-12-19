@@ -1,0 +1,34 @@
+# .htaccess for FDTV
+
+RewriteEngine On
+RewriteBase /
+
+# Prevent directory listing
+Options -Indexes
+
+# Protect hidden files
+<FilesMatch "^\.">
+Order allow,deny
+Deny from all
+</FilesMatch>
+
+# Optional: Force HTTPS (uncomment when live)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Optional: Redirect www to non-www (uncomment if needed)
+# RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+# RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+# Clean URLs for stations
+RewriteRule ^station/([a-zA-Z0-9_-]+)/?$ station/view.php?name=$1 [L,QSA]
+
+# Clean URLs for radio
+RewriteRule ^radio/([a-zA-Z0-9_-]+)/?$ radio/index.php?name=$1 [L,QSA]
+
+# PHP Settings for large uploads
+php_value upload_max_filesize 500M
+php_value post_max_size 500M
+php_value max_execution_time 600
+php_value max_input_time 600
+php_value memory_limit 256M
