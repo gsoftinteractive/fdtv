@@ -127,14 +127,14 @@ $flash = get_flash();
             <div class="dashboard-grid">
                 <!-- Coin Balance - Prominent Display -->
                 <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                    <div class="stat-number" style="font-size: 2.5rem;">
+                    <div class="stat-number" style="font-size: 2.5rem; color: white;">
                         <?php
                         $user_coins = $user['coins'] ?? 0;
                         echo number_format($user_coins);
                         ?>
                         💰
                     </div>
-                    <div class="stat-label" style="color: rgba(255,255,255,0.9);">Coin Balance</div>
+                    <div class="stat-label" style="color: white;">Coin Balance</div>
                     <a href="payment.php" style="color: white; text-decoration: underline; font-size: 0.875rem; margin-top: 0.5rem; display: inline-block;">Buy More Coins</a>
                 </div>
 
@@ -144,7 +144,7 @@ $flash = get_flash();
                 </div>
 
                 <div class="stat-card">
-                    <div class="stat-number"><?php echo $video_count; ?> / 20</div>
+                    <div class="stat-number"><?php echo $video_count; ?></div>
                     <div class="stat-label">Videos Uploaded</div>
                 </div>
 

@@ -162,6 +162,15 @@ $type_labels = [
 ];
 
 $frequency_labels = [
+    // Time-based (new)
+    'now' => 'Play Now',
+    'every_1min' => 'Every 1 Minute',
+    'every_2min' => 'Every 2 Minutes',
+    'every_5min' => 'Every 5 Minutes',
+    'every_15min' => 'Every 15 Minutes',
+    'every_30min' => 'Every 30 Minutes',
+    'every_hour' => 'Every Hour',
+    // Video-based (legacy)
     'every_video' => 'After Every Video',
     'every_2_videos' => 'Every 2 Videos',
     'every_3_videos' => 'Every 3 Videos',
@@ -358,14 +367,26 @@ $frequency_labels = [
                         </div>
 
                         <div class="form-group">
-                            <label for="play_frequency">Play Frequency</label>
+                            <label for="play_frequency">Play Frequency ⏱️</label>
                             <select id="play_frequency" name="play_frequency">
-                                <option value="every_video">After Every Video</option>
-                                <option value="every_2_videos">Every 2 Videos</option>
-                                <option value="every_3_videos" selected>Every 3 Videos</option>
-                                <option value="every_5_videos">Every 5 Videos</option>
-                                <option value="hourly">Hourly</option>
+                                <optgroup label="⏰ Time-Based (Recommended)">
+                                    <option value="every_1min">Every 1 Minute</option>
+                                    <option value="every_2min">Every 2 Minutes</option>
+                                    <option value="every_5min" selected>Every 5 Minutes (Recommended)</option>
+                                    <option value="every_15min">Every 15 Minutes</option>
+                                    <option value="every_30min">Every 30 Minutes</option>
+                                    <option value="every_hour">Every Hour</option>
+                                </optgroup>
+                                <optgroup label="📹 Video-Based (Legacy)">
+                                    <option value="every_video">After Every Video</option>
+                                    <option value="every_2_videos">Every 2 Videos</option>
+                                    <option value="every_3_videos">Every 3 Videos</option>
+                                    <option value="every_5_videos">Every 5 Videos</option>
+                                </optgroup>
                             </select>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                Time-based intervals work more consistently across all playback modes
+                            </small>
                         </div>
 
                         <div class="form-group full-width">
