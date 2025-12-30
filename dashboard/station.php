@@ -201,8 +201,8 @@ if (isset($_POST['action']) && $_POST['action'] == 'update_playlist_settings') {
         $playlist_mode = $_POST['playlist_mode'] ?? 'sequential';
         $jingle_enabled = isset($_POST['jingle_enabled']) ? 1 : 0;
         $advert_enabled = isset($_POST['advert_enabled']) ? 1 : 0;
-        $default_jingle_interval = (int)($_POST['default_jingle_interval'] ?? 3);
-        $default_advert_interval = (int)($_POST['default_advert_interval'] ?? 5);
+        $default_jingle_interval = $_POST['default_jingle_interval'] ?? 'every_5min';
+        $default_advert_interval = $_POST['default_advert_interval'] ?? 'every_15min';
 
         // Validate playlist mode
         $allowed_modes = ['sequential', 'shuffle', 'priority', 'scheduled'];
@@ -210,9 +210,14 @@ if (isset($_POST['action']) && $_POST['action'] == 'update_playlist_settings') {
             $playlist_mode = 'sequential';
         }
 
-        // Validate intervals
-        $default_jingle_interval = max(1, min(10, $default_jingle_interval));
-        $default_advert_interval = max(1, min(20, $default_advert_interval));
+        // Validate time-based intervals
+        $allowed_intervals = ['now', 'every_1min', 'every_2min', 'every_5min', 'every_15min', 'every_30min', 'every_hour'];
+        if (!in_array($default_jingle_interval, $allowed_intervals)) {
+            $default_jingle_interval = 'every_5min';
+        }
+        if (!in_array($default_advert_interval, $allowed_intervals)) {
+            $default_advert_interval = 'every_15min';
+        }
 
         $stmt = $conn->prepare("UPDATE stations SET playlist_mode = ?, jingle_enabled = ?, advert_enabled = ?, default_jingle_interval = ?, default_advert_interval = ? WHERE id = ?");
         $stmt->execute([$playlist_mode, $jingle_enabled, $advert_enabled, $default_jingle_interval, $default_advert_interval, $station['id']]);
@@ -677,24 +682,48 @@ $csrf_token = generate_csrf_token();
 
                         <!-- Jingle Interval -->
                         <div class="form-group">
-                            <label for="default_jingle_interval">Jingle Interval</label>
+                            <label for="default_jingle_interval">Jingle Interval ⏱️</label>
                             <select name="default_jingle_interval" id="default_jingle_interval">
-                                <?php for ($i = 1; $i <= 10; $i++): ?>
-                                    <option value="<?php echo $i; ?>" <?php echo ($station['default_jingle_interval'] ?? 3) == $i ? 'selected' : ''; ?>>Every <?php echo $i; ?> video<?php echo $i > 1 ? 's' : ''; ?></option>
-                                <?php endfor; ?>
+                                <?php
+                                $jingle_intervals = [
+                                    'now' => 'Play Now (Manual)',
+                                    'every_1min' => 'Every 1 Minute',
+                                    'every_2min' => 'Every 2 Minutes',
+                                    'every_5min' => 'Every 5 Minutes (Recommended)',
+                                    'every_15min' => 'Every 15 Minutes',
+                                    'every_30min' => 'Every 30 Minutes',
+                                    'every_hour' => 'Every Hour'
+                                ];
+                                $current_jingle = $station['default_jingle_interval'] ?? 'every_5min';
+                                foreach ($jingle_intervals as $value => $label):
+                                ?>
+                                    <option value="<?php echo $value; ?>" <?php echo $current_jingle === $value ? 'selected' : ''; ?>><?php echo $label; ?></option>
+                                <?php endforeach; ?>
                             </select>
-                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">How often station jingles play</small>
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">⏰ How often station jingles/IDs play (time-based)</small>
                         </div>
 
                         <!-- Advert Interval -->
                         <div class="form-group">
-                            <label for="default_advert_interval">Advert Interval</label>
+                            <label for="default_advert_interval">Advert Interval 📺</label>
                             <select name="default_advert_interval" id="default_advert_interval">
-                                <?php for ($i = 1; $i <= 20; $i++): ?>
-                                    <option value="<?php echo $i; ?>" <?php echo ($station['default_advert_interval'] ?? 5) == $i ? 'selected' : ''; ?>>Every <?php echo $i; ?> video<?php echo $i > 1 ? 's' : ''; ?></option>
-                                <?php endfor; ?>
+                                <?php
+                                $advert_intervals = [
+                                    'now' => 'Play Now (Manual)',
+                                    'every_1min' => 'Every 1 Minute',
+                                    'every_2min' => 'Every 2 Minutes',
+                                    'every_5min' => 'Every 5 Minutes',
+                                    'every_15min' => 'Every 15 Minutes (Recommended)',
+                                    'every_30min' => 'Every 30 Minutes',
+                                    'every_hour' => 'Every Hour'
+                                ];
+                                $current_advert = $station['default_advert_interval'] ?? 'every_15min';
+                                foreach ($advert_intervals as $value => $label):
+                                ?>
+                                    <option value="<?php echo $value; ?>" <?php echo $current_advert === $value ? 'selected' : ''; ?>><?php echo $label; ?></option>
+                                <?php endforeach; ?>
                             </select>
-                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">How often adverts play</small>
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">💰 How often adverts play (time-based)</small>
                         </div>
                     </div>
 
