@@ -139,8 +139,37 @@ if (empty($lower_thirds_presets)) {
     ];
 }
 
-include '../includes/header.php';
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display Settings - FDTV</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a href="index.php" class="logo">FDTV</a>
+            <nav>
+                <a href="index.php">Dashboard</a>
+                <a href="videos.php">Videos</a>
+                <a href="jingles.php">Jingles</a>
+                <a href="station.php">Station</a>
+                <a href="analytics.php">Analytics</a>
+                <a href="radio.php">Radio</a>
+                <a href="ticker.php">Ticker</a>
+                <a href="display-settings.php" class="active">Display Settings</a>
+                <a href="payment.php">Payment</a>
+                <a href="profile.php">Profile</a>
+                <a href="../auth/logout.php">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <div class="container">
 
 <style>
 .display-settings-page {
@@ -548,4 +577,7 @@ setInterval(() => {
 }, 1000);
 </script>
 
-<?php include '../includes/footer.php'; ?>
+        </div>
+    </div>
+</body>
+</html>

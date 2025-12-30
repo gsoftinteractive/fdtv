@@ -94,6 +94,7 @@ $csrf_token = generate_csrf_token();
                 <a href="analytics.php">Analytics</a>
                 <a href="radio.php">Radio</a>
                 <a href="ticker.php">Ticker</a>
+                <a href="display-settings.php">Display Settings</a>
                 <a href="payment.php">Payment</a>
                 <a href="profile.php">Profile</a>
                 <a href="../auth/logout.php">Logout</a>
