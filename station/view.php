@@ -401,6 +401,15 @@ $current_time = date('H:i');
             advertEnabled: <?php echo $advert_enabled ? 'true' : 'false'; ?>,
             jingleInterval: <?php echo (int)$jingle_interval; ?>,
             advertInterval: <?php echo (int)$advert_interval; ?>,
+            // Display Settings (from admin dashboard)
+            ticker_color: <?php echo json_encode($station['ticker_color'] ?? 'red'); ?>,
+            ticker_label: <?php echo json_encode($station['ticker_label'] ?? 'BREAKING'); ?>,
+            ticker_mode: <?php echo json_encode($station['ticker_mode'] ?? 'single'); ?>,
+            ticker_speed: <?php echo (int)($station['ticker_speed'] ?? 60); ?>,
+            clock_position_x: <?php echo (int)($station['clock_position_x'] ?? 0); ?>,
+            clock_position_y: <?php echo (int)($station['clock_position_y'] ?? 0); ?>,
+            social_badges: <?php echo json_encode($station['social_badges'] ?? '[]'); ?>,
+            lower_thirds_presets: <?php echo json_encode($station['lower_thirds_presets'] ?? '[]'); ?>,
             videos: <?php echo json_encode(array_map(function($v) use ($station) {
                 return [
                     'id' => $v['id'],

@@ -225,6 +225,25 @@ if (empty($lower_thirds_presets)) {
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }
 
+.color-picker {
+    width: 80px;
+    height: 40px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.color-picker:hover {
+    border-color: #7c3aed;
+    transform: scale(1.05);
+}
+
+.color-preset-mini:hover {
+    transform: scale(1.1);
+    border-color: #7c3aed !important;
+}
+
 .color-presets {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -403,28 +422,53 @@ if (empty($lower_thirds_presets)) {
             </div>
 
             <div class="form-group" style="margin-top: 20px;">
-                <label>Ticker Color</label>
-                <input type="hidden" id="ticker_color" name="ticker_color" value="<?php echo $station['ticker_color'] ?? 'red'; ?>">
-                <div class="color-presets">
-                    <?php
-                    $colors = [
-                        ['name' => 'Red', 'value' => 'red', 'bg' => '#dc2626'],
-                        ['name' => 'Purple', 'value' => 'purple', 'bg' => '#7c3aed'],
-                        ['name' => 'Green', 'value' => 'green', 'bg' => '#059669'],
-                        ['name' => 'Blue', 'value' => 'blue', 'bg' => '#2563eb'],
-                        ['name' => 'Orange', 'value' => 'orange', 'bg' => '#ea580c'],
-                        ['name' => 'Pink', 'value' => 'pink', 'bg' => '#db2777'],
-                        ['name' => 'Teal', 'value' => 'teal', 'bg' => '#0d9488'],
-                        ['name' => 'Indigo', 'value' => 'indigo', 'bg' => '#4f46e5'],
-                    ];
-                    foreach ($colors as $color):
-                    ?>
-                        <div class="color-preset <?php echo ($station['ticker_color'] ?? 'red') === $color['value'] ? 'active' : ''; ?>"
-                             data-color="<?php echo $color['value']; ?>">
-                            <div class="color-box" style="background: <?php echo $color['bg']; ?>;"></div>
-                            <div><?php echo $color['name']; ?></div>
-                        </div>
-                    <?php endforeach; ?>
+                <label for="ticker_color_picker">Ticker Color</label>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <input type="color" id="ticker_color_picker" name="ticker_color" class="color-picker"
+                           value="<?php
+                           // Convert named colors to hex
+                           $color_value = $station['ticker_color'] ?? '#dc2626';
+                           $color_map = [
+                               'red' => '#dc2626',
+                               'purple' => '#7c3aed',
+                               'green' => '#059669',
+                               'blue' => '#2563eb',
+                               'orange' => '#ea580c',
+                               'pink' => '#db2777',
+                               'teal' => '#0d9488',
+                               'indigo' => '#4f46e5'
+                           ];
+                           echo $color_map[$color_value] ?? $color_value;
+                           ?>">
+                    <div class="color-preview" id="colorPreview" style="width: 80px; height: 40px; border-radius: 6px; border: 2px solid #ddd; background: <?php echo $color_map[$station['ticker_color'] ?? 'red'] ?? ($station['ticker_color'] ?? '#dc2626'); ?>;"></div>
+                    <span id="colorValue" style="font-family: monospace; color: #666;"><?php echo $color_map[$station['ticker_color'] ?? 'red'] ?? ($station['ticker_color'] ?? '#dc2626'); ?></span>
+                </div>
+                <small style="display: block; margin-top: 8px;">Pick any color for your ticker background</small>
+
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 13px; color: #666;">Quick Presets:</strong>
+                    <div class="color-presets-mini" style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                        <?php
+                        $colors = [
+                            ['name' => 'Red', 'bg' => '#dc2626'],
+                            ['name' => 'Purple', 'bg' => '#7c3aed'],
+                            ['name' => 'Green', 'bg' => '#059669'],
+                            ['name' => 'Blue', 'bg' => '#2563eb'],
+                            ['name' => 'Orange', 'bg' => '#ea580c'],
+                            ['name' => 'Pink', 'bg' => '#db2777'],
+                            ['name' => 'Teal', 'bg' => '#0d9488'],
+                            ['name' => 'Indigo', 'bg' => '#4f46e5'],
+                            ['name' => 'Yellow', 'bg' => '#eab308'],
+                            ['name' => 'Cyan', 'bg' => '#06b6d4'],
+                            ['name' => 'Rose', 'bg' => '#f43f5e'],
+                            ['name' => 'Black', 'bg' => '#000000'],
+                        ];
+                        foreach ($colors as $color):
+                        ?>
+                            <button type="button" class="color-preset-mini" data-color="<?php echo $color['bg']; ?>" title="<?php echo $color['name']; ?>"
+                                    style="width: 36px; height: 36px; border-radius: 4px; border: 2px solid #ddd; background: <?php echo $color['bg']; ?>; cursor: pointer;"></button>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -517,12 +561,24 @@ if (empty($lower_thirds_presets)) {
 </div>
 
 <script>
-// Color preset selection
-document.querySelectorAll('.color-preset').forEach(preset => {
-    preset.addEventListener('click', function() {
-        document.querySelectorAll('.color-preset').forEach(p => p.classList.remove('active'));
-        this.classList.add('active');
-        document.getElementById('ticker_color').value = this.dataset.color;
+// Color picker handling
+const colorPicker = document.getElementById('ticker_color_picker');
+const colorPreview = document.getElementById('colorPreview');
+const colorValue = document.getElementById('colorValue');
+
+colorPicker.addEventListener('input', function() {
+    const color = this.value;
+    colorPreview.style.background = color;
+    colorValue.textContent = color;
+});
+
+// Quick color presets
+document.querySelectorAll('.color-preset-mini').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const color = this.dataset.color;
+        colorPicker.value = color;
+        colorPreview.style.background = color;
+        colorValue.textContent = color;
     });
 });
 
