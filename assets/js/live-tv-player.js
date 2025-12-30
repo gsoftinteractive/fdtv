@@ -23,16 +23,23 @@ class LiveTVPlayer {
         this.playlistMode = stationData.playlistMode || 'sequential';
         this.jingleEnabled = stationData.jingleEnabled || false;
         this.advertEnabled = stationData.advertEnabled || false;
-        this.jingleInterval = stationData.jingleInterval || 3;
-        this.advertInterval = stationData.advertInterval || 5;
+        this.jingleInterval = stationData.jingleInterval || 'every_5min';
+        this.advertInterval = stationData.advertInterval || 'every_15min';
         this.jingles = stationData.jingles || [];
 
-        // Jingle tracking
+        // Jingle tracking (legacy video counter method - kept for backward compatibility)
         this.videosSinceJingle = 0;
         this.videosSinceAdvert = 0;
         this.currentJingleIndex = 0;
         this.isPlayingJingle = false;
         this.nextVideoIndex = 0; // Track where to resume after jingle
+
+        // Time-based jingle tracking
+        this.jingleTimer = null;
+        this.advertTimer = null;
+        this.jingleIntervalMs = this.parseTimeInterval(this.jingleInterval);
+        this.advertIntervalMs = this.parseTimeInterval(this.advertInterval);
+        this.savedVideoState = null; // Store video state before jingle plays
 
         // Analytics tracking
         this.sessionId = null;
@@ -120,6 +127,187 @@ class LiveTVPlayer {
         this.initTickerSpeedControl();
         this.initLowerThirds();
         this.initSocialMediaBadges();
+    }
+
+    /**
+     * Parse time interval string to milliseconds
+     * @param {string} interval - Time interval string like 'every_5min', 'every_hour', etc.
+     * @returns {number} Milliseconds
+     */
+    parseTimeInterval(interval) {
+        if (typeof interval === 'number') {
+            // Backward compatibility: if it's a number, treat as video count (convert to time estimate)
+            // Assume average video is 3 minutes, so interval * 3 minutes
+            return interval * 3 * 60 * 1000;
+        }
+
+        const intervalMap = {
+            'now': 0,
+            'every_1min': 1 * 60 * 1000,
+            'every_2min': 2 * 60 * 1000,
+            'every_5min': 5 * 60 * 1000,
+            'every_15min': 15 * 60 * 1000,
+            'every_30min': 30 * 60 * 1000,
+            'every_hour': 60 * 60 * 1000
+        };
+
+        return intervalMap[interval] || 5 * 60 * 1000; // Default 5 minutes
+    }
+
+    /**
+     * Start time-based jingle timer
+     */
+    startJingleTimer() {
+        if (!this.jingleEnabled || this.jingles.length === 0 || this.jingleIntervalMs === 0) {
+            return;
+        }
+
+        // Clear existing timer if any
+        if (this.jingleTimer) {
+            clearTimeout(this.jingleTimer);
+        }
+
+        // Set timer to trigger jingle at specified interval
+        this.jingleTimer = setTimeout(() => {
+            this.triggerTimeBasedJingle();
+        }, this.jingleIntervalMs);
+
+        console.log(`Jingle timer started: will play in ${this.jingleIntervalMs / 1000} seconds`);
+    }
+
+    /**
+     * Start time-based advert timer
+     */
+    startAdvertTimer() {
+        if (!this.advertEnabled || this.advertIntervalMs === 0) {
+            return;
+        }
+
+        // Clear existing timer if any
+        if (this.advertTimer) {
+            clearTimeout(this.advertTimer);
+        }
+
+        // Set timer to trigger advert at specified interval
+        this.advertTimer = setTimeout(() => {
+            this.triggerTimeBasedAdvert();
+        }, this.advertIntervalMs);
+
+        console.log(`Advert timer started: will play in ${this.advertIntervalMs / 1000} seconds`);
+    }
+
+    /**
+     * Trigger time-based jingle (interrupts current video and resumes after)
+     */
+    triggerTimeBasedJingle() {
+        // Get jingle types
+        const jingleTypes = this.jingles.filter(j => j.type === 'station_id' || j.type === 'jingle');
+        if (jingleTypes.length === 0) {
+            // No jingles available, restart timer
+            this.startJingleTimer();
+            return;
+        }
+
+        // Save current video state for resume
+        this.savedVideoState = {
+            src: this.player.src,
+            currentTime: this.player.currentTime,
+            wasPaused: this.player.paused,
+            currentIndex: this.currentIndex
+        };
+
+        console.log('Saved video state before jingle:', this.savedVideoState);
+
+        // Mark as playing jingle
+        this.isPlayingJingle = true;
+
+        // Pick a jingle (rotate through them)
+        const jingle = jingleTypes[this.currentJingleIndex % jingleTypes.length];
+        this.currentJingleIndex++;
+
+        // Load and play jingle
+        this.loadJingle(jingle);
+
+        // Don't restart timer here - will restart after jingle ends
+    }
+
+    /**
+     * Trigger time-based advert (interrupts current video and resumes after)
+     */
+    triggerTimeBasedAdvert() {
+        const adverts = this.jingles.filter(j => j.type === 'advert');
+        if (adverts.length === 0) {
+            // No adverts available, restart timer
+            this.startAdvertTimer();
+            return;
+        }
+
+        // Save current video state for resume
+        this.savedVideoState = {
+            src: this.player.src,
+            currentTime: this.player.currentTime,
+            wasPaused: this.player.paused,
+            currentIndex: this.currentIndex
+        };
+
+        console.log('Saved video state before advert:', this.savedVideoState);
+
+        // Mark as playing jingle (adverts use same flag)
+        this.isPlayingJingle = true;
+
+        // Pick a random advert
+        const advert = adverts[Math.floor(Math.random() * adverts.length)];
+
+        // Load and play advert
+        this.loadJingle(advert);
+
+        // Don't restart timer here - will restart after advert ends
+    }
+
+    /**
+     * Resume saved video after jingle/advert ends
+     */
+    resumeSavedVideo() {
+        if (!this.savedVideoState) {
+            console.log('No saved video state to resume');
+            return;
+        }
+
+        console.log('Resuming saved video:', this.savedVideoState);
+
+        // Restore video
+        this.player.src = this.savedVideoState.src;
+        this.currentIndex = this.savedVideoState.currentIndex;
+
+        // Update program info
+        this.updateProgramInfo();
+
+        // Wait for video to load, then seek to saved position
+        const seekAndResume = () => {
+            this.player.currentTime = this.savedVideoState.currentTime;
+
+            if (!this.savedVideoState.wasPaused) {
+                const playPromise = this.player.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        this.isPlaying = true;
+                        console.log('Resumed playback from:', this.savedVideoState.currentTime);
+                    }).catch((error) => {
+                        console.log('Resume playback error:', error);
+                    });
+                }
+            }
+
+            // Clear saved state
+            this.savedVideoState = null;
+
+            // Restart jingle/advert timers
+            this.startJingleTimer();
+            this.startAdvertTimer();
+        };
+
+        // Use loadedmetadata event to ensure video is ready for seeking
+        this.player.addEventListener('loadedmetadata', seekAndResume, { once: true });
     }
 
     initDoubleLineTicker() {
@@ -818,16 +1006,24 @@ class LiveTVPlayer {
         document.getElementById('videoWrapper').classList.add('transitioning');
 
         setTimeout(() => {
-            // If we just finished playing a jingle, go back to videos
+            // If we just finished playing a jingle/advert, resume saved video
             if (this.isPlayingJingle) {
                 this.isPlayingJingle = false;
-                this.loadVideo(this.nextVideoIndex);
+
+                // Check if we have a saved video state to resume
+                if (this.savedVideoState) {
+                    this.resumeSavedVideo();
+                } else {
+                    // Fallback to old behavior (go to next video)
+                    this.loadVideo(this.nextVideoIndex);
+                }
             } else {
-                // Increment video counter
+                // Increment video counter (legacy - kept for backward compatibility)
                 this.videosSinceJingle++;
                 this.videosSinceAdvert++;
 
-                // Check if it's time to play a jingle
+                // Check if it's time to play a jingle (legacy video-count based)
+                // Note: Time-based jingles use timers and don't rely on this check
                 if (this.shouldPlayJingle()) {
                     this.playJingle();
                 } else if (this.shouldPlayAdvert()) {
@@ -847,14 +1043,29 @@ class LiveTVPlayer {
 
     shouldPlayJingle() {
         if (!this.jingleEnabled || this.jingles.length === 0) return false;
+
+        // If using time-based intervals, return false (timers handle it)
+        if (typeof this.jingleInterval === 'string') {
+            return false;
+        }
+
+        // Legacy video-count based method
         return this.videosSinceJingle >= this.jingleInterval;
     }
 
     shouldPlayAdvert() {
         if (!this.advertEnabled) return false;
+
         // Get advert jingles
         const adverts = this.jingles.filter(j => j.type === 'advert');
         if (adverts.length === 0) return false;
+
+        // If using time-based intervals, return false (timers handle it)
+        if (typeof this.advertInterval === 'string') {
+            return false;
+        }
+
+        // Legacy video-count based method
         return this.videosSinceAdvert >= this.advertInterval;
     }
 
@@ -1123,6 +1334,13 @@ class LiveTVPlayer {
     onPlaying() {
         this.hideLoading();
         this.isPlaying = true;
+
+        // Start time-based jingle/advert timers when a regular video starts playing
+        // Don't start timers when a jingle is playing
+        if (!this.isPlayingJingle) {
+            this.startJingleTimer();
+            this.startAdvertTimer();
+        }
     }
 
     onBuffering() {

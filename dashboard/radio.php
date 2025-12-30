@@ -104,15 +104,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && verify_csrf_token($_POST['csrf_token
     if ($action == 'update_playlist_settings') {
         $radio_playlist_mode = $_POST['radio_playlist_mode'] ?? 'shuffle';
         $radio_jingle_enabled = isset($_POST['radio_jingle_enabled']) ? 1 : 0;
-        $radio_jingle_interval = (int)($_POST['radio_jingle_interval'] ?? 5);
+        $radio_jingle_interval = $_POST['radio_jingle_interval'] ?? 'every_5min';
         $radio_advert_enabled = isset($_POST['radio_advert_enabled']) ? 1 : 0;
-        $radio_advert_interval = (int)($_POST['radio_advert_interval'] ?? 10);
+        $radio_advert_interval = $_POST['radio_advert_interval'] ?? 'every_15min';
 
-        // Validate intervals
-        if ($radio_jingle_interval < 1) $radio_jingle_interval = 1;
-        if ($radio_jingle_interval > 100) $radio_jingle_interval = 100;
-        if ($radio_advert_interval < 1) $radio_advert_interval = 1;
-        if ($radio_advert_interval > 100) $radio_advert_interval = 100;
+        // Validate time-based intervals
+        $allowed_intervals = ['now', 'every_1min', 'every_2min', 'every_5min',
+                             'every_15min', 'every_30min', 'every_hour'];
+        if (!in_array($radio_jingle_interval, $allowed_intervals)) {
+            $radio_jingle_interval = 'every_5min';
+        }
+        if (!in_array($radio_advert_interval, $allowed_intervals)) {
+            $radio_advert_interval = 'every_15min';
+        }
 
         $stmt = $conn->prepare("UPDATE stations SET
             radio_playlist_mode = ?,
@@ -842,6 +846,107 @@ $flash = get_flash();
                         </div>
 
                         <button type="submit" class="btn">Save Mode</button>
+                    </form>
+                </div>
+
+                <!-- Radio Jingle & Playlist Settings Card -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">Jingle & Advert Settings</h2>
+                    </div>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                        <input type="hidden" name="action" value="update_playlist_settings">
+
+                        <div class="form-group">
+                            <label>Playlist Mode</label>
+                            <select name="radio_playlist_mode" style="max-width: 300px;">
+                                <option value="sequential" <?php echo ($station['radio_playlist_mode'] ?? 'shuffle') == 'sequential' ? 'selected' : ''; ?>>
+                                    Sequential (Play in order)
+                                </option>
+                                <option value="shuffle" <?php echo ($station['radio_playlist_mode'] ?? 'shuffle') == 'shuffle' ? 'selected' : ''; ?>>
+                                    Shuffle (Random order)
+                                </option>
+                            </select>
+                        </div>
+
+                        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="radio_jingle_enabled" <?php echo ($station['radio_jingle_enabled'] ?? 0) ? 'checked' : ''; ?>>
+                                Enable Radio Jingles / Station IDs
+                            </label>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                Automatically play jingles at specified intervals
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="radio_jingle_interval">Jingle Interval ⏱️</label>
+                            <select name="radio_jingle_interval" id="radio_jingle_interval" style="max-width: 300px;">
+                                <?php
+                                $jingle_intervals = [
+                                    'now' => 'Play Now (Manual)',
+                                    'every_1min' => 'Every 1 Minute',
+                                    'every_2min' => 'Every 2 Minutes',
+                                    'every_5min' => 'Every 5 Minutes (Recommended)',
+                                    'every_15min' => 'Every 15 Minutes',
+                                    'every_30min' => 'Every 30 Minutes',
+                                    'every_hour' => 'Every Hour'
+                                ];
+                                $current_jingle = $station['radio_jingle_interval'] ?? 'every_5min';
+                                foreach ($jingle_intervals as $value => $label):
+                                ?>
+                                    <option value="<?php echo $value; ?>" <?php echo $current_jingle === $value ? 'selected' : ''; ?>>
+                                        <?php echo $label; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                ⏰ How often radio jingles/IDs play (time-based)
+                            </small>
+                        </div>
+
+                        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="radio_advert_enabled" <?php echo ($station['radio_advert_enabled'] ?? 0) ? 'checked' : ''; ?>>
+                                Enable Radio Adverts
+                            </label>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                Automatically play adverts at specified intervals
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="radio_advert_interval">Advert Interval 📺</label>
+                            <select name="radio_advert_interval" id="radio_advert_interval" style="max-width: 300px;">
+                                <?php
+                                $advert_intervals = [
+                                    'now' => 'Play Now (Manual)',
+                                    'every_1min' => 'Every 1 Minute',
+                                    'every_2min' => 'Every 2 Minutes',
+                                    'every_5min' => 'Every 5 Minutes',
+                                    'every_15min' => 'Every 15 Minutes (Recommended)',
+                                    'every_30min' => 'Every 30 Minutes',
+                                    'every_hour' => 'Every Hour'
+                                ];
+                                $current_advert = $station['radio_advert_interval'] ?? 'every_15min';
+                                foreach ($advert_intervals as $value => $label):
+                                ?>
+                                    <option value="<?php echo $value; ?>" <?php echo $current_advert === $value ? 'selected' : ''; ?>>
+                                        <?php echo $label; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                💰 How often adverts play (time-based)
+                            </small>
+                        </div>
+
+                        <button type="submit" class="btn">Save Jingle Settings</button>
                     </form>
                 </div>
 

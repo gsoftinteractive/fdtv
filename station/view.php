@@ -399,8 +399,8 @@ $current_time = date('H:i');
             playlistMode: <?php echo json_encode($playlist_mode); ?>,
             jingleEnabled: <?php echo $jingle_enabled ? 'true' : 'false'; ?>,
             advertEnabled: <?php echo $advert_enabled ? 'true' : 'false'; ?>,
-            jingleInterval: <?php echo (int)$jingle_interval; ?>,
-            advertInterval: <?php echo (int)$advert_interval; ?>,
+            jingleInterval: <?php echo json_encode($jingle_interval); ?>,
+            advertInterval: <?php echo json_encode($advert_interval); ?>,
             // Display Settings (from admin dashboard)
             ticker_color: <?php echo json_encode($station['ticker_color'] ?? 'red'); ?>,
             ticker_label: <?php echo json_encode($station['ticker_label'] ?? 'BREAKING'); ?>,
