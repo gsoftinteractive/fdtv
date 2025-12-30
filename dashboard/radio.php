@@ -810,6 +810,107 @@ $flash = get_flash();
                         <button type="submit" class="btn">Save Settings</button>
                     </form>
                 </div>
+
+                <!-- Radio Jingle & Advert Settings Card -->
+                <div class="card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">🎵 Jingle & Advert Settings</h2>
+                    </div>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                        <input type="hidden" name="action" value="update_playlist_settings">
+
+                        <div class="form-group">
+                            <label>Playlist Mode</label>
+                            <select name="radio_playlist_mode" style="max-width: 300px;">
+                                <option value="sequential" <?php echo ($station['radio_playlist_mode'] ?? 'shuffle') == 'sequential' ? 'selected' : ''; ?>>
+                                    Sequential (Play in order)
+                                </option>
+                                <option value="shuffle" <?php echo ($station['radio_playlist_mode'] ?? 'shuffle') == 'shuffle' ? 'selected' : ''; ?>>
+                                    Shuffle (Random order)
+                                </option>
+                            </select>
+                        </div>
+
+                        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="radio_jingle_enabled" <?php echo ($station['radio_jingle_enabled'] ?? 0) ? 'checked' : ''; ?>>
+                                Enable Radio Jingles / Station IDs
+                            </label>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                Automatically play jingles at specified intervals (upload jingles in Jingles page)
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="radio_jingle_interval_settings">Jingle Interval ⏱️</label>
+                            <select name="radio_jingle_interval" id="radio_jingle_interval_settings" style="max-width: 300px;">
+                                <?php
+                                $jingle_intervals = [
+                                    'now' => 'Play Now (Manual)',
+                                    'every_1min' => 'Every 1 Minute',
+                                    'every_2min' => 'Every 2 Minutes',
+                                    'every_5min' => 'Every 5 Minutes (Recommended)',
+                                    'every_15min' => 'Every 15 Minutes',
+                                    'every_30min' => 'Every 30 Minutes',
+                                    'every_hour' => 'Every Hour'
+                                ];
+                                $current_jingle = $station['radio_jingle_interval'] ?? 'every_5min';
+                                foreach ($jingle_intervals as $value => $label):
+                                ?>
+                                    <option value="<?php echo $value; ?>" <?php echo $current_jingle === $value ? 'selected' : ''; ?>>
+                                        <?php echo $label; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                ⏰ How often radio jingles/IDs play (time-based)
+                            </small>
+                        </div>
+
+                        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="radio_advert_enabled" <?php echo ($station['radio_advert_enabled'] ?? 0) ? 'checked' : ''; ?>>
+                                Enable Radio Adverts
+                            </label>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                Automatically play adverts at specified intervals (upload adverts in Jingles page)
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="radio_advert_interval_settings">Advert Interval 📺</label>
+                            <select name="radio_advert_interval" id="radio_advert_interval_settings" style="max-width: 300px;">
+                                <?php
+                                $advert_intervals = [
+                                    'now' => 'Play Now (Manual)',
+                                    'every_1min' => 'Every 1 Minute',
+                                    'every_2min' => 'Every 2 Minutes',
+                                    'every_5min' => 'Every 5 Minutes',
+                                    'every_15min' => 'Every 15 Minutes (Recommended)',
+                                    'every_30min' => 'Every 30 Minutes',
+                                    'every_hour' => 'Every Hour'
+                                ];
+                                $current_advert = $station['radio_advert_interval'] ?? 'every_15min';
+                                foreach ($advert_intervals as $value => $label):
+                                ?>
+                                    <option value="<?php echo $value; ?>" <?php echo $current_advert === $value ? 'selected' : ''; ?>>
+                                        <?php echo $label; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small style="display: block; color: #6b7280; margin-top: 0.25rem;">
+                                💰 How often adverts play (time-based)
+                            </small>
+                        </div>
+
+                        <button type="submit" class="btn">Save Jingle Settings</button>
+                    </form>
+                </div>
             </div>
 
             <!-- Audio Library Tab -->
