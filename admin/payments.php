@@ -47,54 +47,68 @@ if (isset($_POST['approve'])) {
             $conn->beginTransaction();
             
             try {
-                
+
                 // Update payment status
                 $stmt = $conn->prepare("UPDATE payments SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?");
                 $stmt->execute([$admin_id, $payment_id]);
-                
-                // Check if station exists, if not create it
-                $stmt = $conn->prepare("SELECT id FROM stations WHERE user_id = ?");
-                $stmt->execute([$payment['user_id']]);
-                $station = $stmt->fetch();
-                
-                if (!$station) {
-                    // Create station
-                    $stmt = $conn->prepare("INSERT INTO stations (user_id, station_name, slug, status) VALUES (?, ?, ?, 'active')");
-                    $stmt->execute([$payment['user_id'], $payment['station_name'], $payment['station_slug']]);
+
+                // Handle coin purchase payment
+                $payment_type = $payment['payment_type'] ?? 'coins';
+
+                if ($payment_type === 'coins') {
+                    // Parse coins from description (format: "Purchase of X coins")
+                    // Or use amount to determine coin package
+                    $coins_to_credit = 0;
+
+                    // Determine coin package based on amount
+                    $coin_packages = [
+                        5000 => 500,
+                        10000 => 1100,   // 1000 + 100 bonus
+                        25000 => 2800,   // 2500 + 300 bonus
+                        50000 => 5750,   // 5000 + 750 bonus
+                        100000 => 12000  // 10000 + 2000 bonus
+                    ];
+
+                    $coins_to_credit = $coin_packages[$payment['amount']] ?? 0;
+
+                    if ($coins_to_credit > 0) {
+                        // Get current balance
+                        $stmt = $conn->prepare("SELECT coins FROM users WHERE id = ?");
+                        $stmt->execute([$payment['user_id']]);
+                        $user_data = $stmt->fetch();
+                        $balance_before = $user_data['coins'] ?? 0;
+                        $balance_after = $balance_before + $coins_to_credit;
+
+                        // Credit coins to user
+                        $stmt = $conn->prepare("UPDATE users SET coins = ?, coins_updated_at = NOW() WHERE id = ?");
+                        $stmt->execute([$balance_after, $payment['user_id']]);
+
+                        // Record transaction
+                        $stmt = $conn->prepare("INSERT INTO coin_transactions
+                            (user_id, amount, transaction_type, description, balance_before, balance_after, created_by, reference)
+                            VALUES (?, ?, 'purchase', ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $payment['user_id'],
+                            $coins_to_credit,
+                            "Purchase of {$coins_to_credit} coins (Payment #{$payment_id})",
+                            $balance_before,
+                            $balance_after,
+                            $admin_id,
+                            $payment['reference']
+                        ]);
+                    }
                 }
-                
-                // Update user status to active
-                $stmt = $conn->prepare("UPDATE users SET status = 'active' WHERE id = ?");
-                $stmt->execute([$payment['user_id']]);
-                
-                // Create or extend subscription (30 days)
-                $stmt = $conn->prepare("SELECT * FROM subscriptions WHERE user_id = ? ORDER BY end_date DESC LIMIT 1");
-                $stmt->execute([$payment['user_id']]);
-                $subscription = $stmt->fetch();
-                
-                if ($subscription && strtotime($subscription['end_date']) > time()) {
-                    // Extend existing subscription
-                    $new_end_date = date('Y-m-d', strtotime($subscription['end_date'] . ' +30 days'));
-                    $stmt = $conn->prepare("UPDATE subscriptions SET end_date = ?, status = 'active' WHERE id = ?");
-                    $stmt->execute([$new_end_date, $subscription['id']]);
-                } else {
-                    // Create new subscription
-                    $start_date = date('Y-m-d');
-                    $end_date = date('Y-m-d', strtotime('+30 days'));
-                    $stmt = $conn->prepare("INSERT INTO subscriptions (user_id, start_date, end_date, amount, status) VALUES (?, ?, ?, ?, 'active')");
-                    $stmt->execute([$payment['user_id'], $start_date, $end_date, $payment['amount']]);
-                }
-                
+
                 $conn->commit();
-                
+
                 // Send approval email
                 $message = "
                     <h2>Payment Approved!</h2>
                     <p>Dear {$payment['company_name']},</p>
                     <p>Your payment of ₦" . number_format($payment['amount']) . " has been approved.</p>
-                    <p>Your station is now active for the next 30 days.</p>
-                    <p><strong>Station URL:</strong> " . SITE_URL . "/station/view.php?name={$payment['station_slug']}</p>
-                    <p>Login to start uploading videos!</p>
+                    <p><strong>{$coins_to_credit} coins</strong> have been credited to your account.</p>
+                    <p>You can now create your station (costs 100 coins) or upload videos (10 coins per video).</p>
+                    <p><a href='" . SITE_URL . "/dashboard/index.php'>Go to Dashboard</a></p>
                 ";
                 send_email($payment['email'], "Payment Approved - FDTV", $message);
                 

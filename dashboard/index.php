@@ -27,15 +27,20 @@ $stmt = $conn->prepare("SELECT * FROM subscriptions WHERE user_id = ? ORDER BY e
 $stmt->execute([$user_id]);
 $subscription = $stmt->fetch();
 
-// Count videos
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM videos WHERE station_id = ?");
-$stmt->execute([$station['id']]);
-$video_count = $stmt->fetch()['total'];
+// Count videos (only if station exists)
+$video_count = 0;
+$storage_used = 0;
 
-// Calculate storage used
-$stmt = $conn->prepare("SELECT SUM(file_size) as total_size FROM videos WHERE station_id = ?");
-$stmt->execute([$station['id']]);
-$storage_used = $stmt->fetch()['total_size'] ?? 0;
+if ($station) {
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM videos WHERE station_id = ?");
+    $stmt->execute([$station['id']]);
+    $video_count = $stmt->fetch()['total'];
+
+    // Calculate storage used
+    $stmt = $conn->prepare("SELECT SUM(file_size) as total_size FROM videos WHERE station_id = ?");
+    $stmt->execute([$station['id']]);
+    $storage_used = $stmt->fetch()['total_size'] ?? 0;
+}
 
 $flash = get_flash();
 ?>
@@ -104,6 +109,18 @@ $flash = get_flash();
                 <div class="alert alert-danger">
                     <strong>⚠️ Station Suspended</strong>
                     <p>Your account has been suspended. Please contact support for assistance.</p>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!$station): ?>
+                <div class="alert" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white;">
+                    <h3 style="color: white; margin-top: 0;">🎬 Create Your Station</h3>
+                    <p>You haven't created your station yet. Create your station to start broadcasting!</p>
+                    <p><strong>Station Name:</strong> <?php echo clean($user['station_name']); ?></p>
+                    <p><strong>Creation Cost:</strong> 100 coins (one-time fee)</p>
+                    <a href="create-station.php" class="btn" style="background: white; color: #667eea; margin-top: 0.5rem;">
+                        Create Station Now
+                    </a>
                 </div>
             <?php endif; ?>
 

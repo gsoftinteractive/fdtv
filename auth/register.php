@@ -74,27 +74,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Register user
         if (empty($errors)) {
             $password_hash = password_hash($password, PASSWORD_ARGON2ID);
-            
-            $stmt = $conn->prepare("INSERT INTO users (company_name, email, phone, password, station_name, station_slug, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')");
-            
+
+            // New users start with 0 coins and active status
+            $stmt = $conn->prepare("INSERT INTO users (company_name, email, phone, password, station_name, station_slug, status, coins) VALUES (?, ?, ?, ?, ?, ?, 'active', 0)");
+
             if ($stmt->execute([$company_name, $email, $phone, $password_hash, $station_name, $station_slug])) {
-                
+
                 // Send welcome email
                 $message = "
                     <h2>Welcome to FDTV!</h2>
                     <p>Thank you for registering, $company_name.</p>
-                    <p>Your station: <strong>$station_name</strong></p>
-                    <p>To activate your station, please make payment of ₦40,000 to:</p>
-                    <p>
-                        <strong>Bank:</strong> " . get_setting('bank_name', $conn) . "<br>
-                        <strong>Account Number:</strong> " . get_setting('account_number', $conn) . "<br>
-                        <strong>Account Name:</strong> " . get_setting('account_name', $conn) . "
-                    </p>
-                    <p>After payment, login and upload your payment receipt.</p>
+                    <p>Your desired station name: <strong>$station_name</strong></p>
+                    <p><strong>Next Steps:</strong></p>
+                    <ol>
+                        <li>Login to your dashboard</li>
+                        <li>Purchase coins (starting from ₦5,000 for 500 coins)</li>
+                        <li>Create your station (costs 100 coins)</li>
+                        <li>Start uploading and broadcasting!</li>
+                    </ol>
+                    <p>You only pay for what you use - fair pricing for everyone!</p>
+                    <p><a href='" . SITE_URL . "/auth/login.php'>Login Now</a></p>
                 ";
                 send_email($email, "Welcome to FDTV", $message);
-                
-                $success = "Registration successful! Please check your email for payment details.";
+
+                $success = "Registration successful! Login and purchase coins to create your station.";
             } else {
                 $errors[] = "Registration failed. Please try again.";
             }

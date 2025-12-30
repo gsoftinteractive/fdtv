@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS coin_transactions (
 -- Create coin pricing configuration table
 CREATE TABLE IF NOT EXISTS coin_pricing (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    action_type ENUM('video_upload', 'storage_per_gb', 'streaming_per_hour', 'monthly_maintenance') NOT NULL,
+    action_type ENUM('video_upload', 'storage_per_gb', 'streaming_per_hour', 'monthly_maintenance', 'station_creation') NOT NULL,
     coins_required INT NOT NULL,
     description VARCHAR(255),
     is_active TINYINT(1) DEFAULT 1,
@@ -79,17 +79,13 @@ INSERT INTO coin_pricing (action_type, coins_required, description) VALUES
 ('video_upload', 10, '10 coins per video upload'),
 ('storage_per_gb', 50, '50 coins per GB of storage per month'),
 ('streaming_per_hour', 5, '5 coins per hour of streaming'),
-('monthly_maintenance', 100, '100 coins monthly maintenance fee (auto-deducted)')
+('monthly_maintenance', 100, '100 coins monthly maintenance fee (auto-deducted)'),
+('station_creation', 100, '100 coins to create a TV/Radio station')
 ON DUPLICATE KEY UPDATE coins_required=VALUES(coins_required), description=VALUES(description);
 
 -- Add last coin deduction tracking to stations
 ALTER TABLE stations
 ADD COLUMN IF NOT EXISTS last_coin_deduction TIMESTAMP NULL DEFAULT NULL COMMENT 'Last time coins were deducted for this station';
-
--- Grant 1000 starter coins to all existing active users
-UPDATE users
-SET coins = 1000, coins_updated_at = NOW()
-WHERE status = 'active' AND (coins IS NULL OR coins = 0);
 
 -- =====================================================
 -- PART 3: COIN USAGE TRACKING

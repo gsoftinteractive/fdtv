@@ -8,20 +8,21 @@ Your FDTV platform now uses a **coin-based payment system** instead of monthly s
 
 ## 🎯 How New Stations Are Created
 
-**It's now much simpler:**
+**The new process:**
 
-1. User signs up on your platform
-2. **Automatically receives 1,000 starter coins** (free welcome gift)
-3. Creates their station immediately - no waiting, no activation fee
-4. Starts uploading videos and broadcasting right away
-5. Buys more coins when needed
+1. User signs up on your platform (instant, no payment yet)
+2. **User purchases coin package** via bank transfer (starting from ₦5,000)
+3. Admin approves payment and credits coins to user's account
+4. **User creates their station** (costs 100 coins - one-time fee)
+5. User starts uploading videos and broadcasting
+6. Buys more coins when needed
 
 **No more:**
-- ❌ ₦40,000 activation payment
-- ❌ Waiting for admin approval
-- ❌ "Pending" status holding them back
+- ❌ ₦40,000 fixed monthly subscription
+- ❌ Overpaying for unused resources
+- ❌ "Pending" status waiting for approval
 
-**Result:** Lower barrier to entry = More users signing up!
+**Result:** Fair pricing + Lower entry cost = More users can afford to start!
 
 ---
 
@@ -29,24 +30,28 @@ Your FDTV platform now uses a **coin-based payment system** instead of monthly s
 
 Your users' coins are deducted based on **actual platform usage**:
 
-### 1️⃣ Video Uploads
+### 1️⃣ Station Creation
+- **100 coins** (one-time fee)
+- **Example**: Create 1 TV/Radio station = 100 coins (only once)
+
+### 2️⃣ Video Uploads
 - **10 coins** per video uploaded
 - **Example**: Upload 50 videos = 500 coins
 
-### 2️⃣ Storage (Monthly)
+### 3️⃣ Storage (Monthly)
 - **50 coins per GB** per month
 - **Example**:
   - 5GB of videos = 250 coins/month
   - 10GB of videos = 500 coins/month
   - 20GB of videos = 1,000 coins/month
 
-### 3️⃣ Streaming (Real-time)
+### 4️⃣ Streaming (Real-time)
 - **5 coins per hour** of streaming
 - **Example**:
   - 100 hours streaming = 500 coins
   - 200 hours streaming = 1,000 coins
 
-### 4️⃣ Monthly Maintenance
+### 5️⃣ Monthly Maintenance
 - **100 coins** per month (fixed)
 - Covers server costs, platform upkeep
 
@@ -57,42 +62,51 @@ Your users' coins are deducted based on **actual platform usage**:
 ### Small Station Owner
 **Usage**: 20 videos, 5GB storage, 100 hours streaming/month
 
-**Monthly Cost**:
-- Videos: 20 × 10 = 200 coins (one-time)
+**First Month Cost**:
+- Station creation: 100 coins (one-time)
+- Videos: 20 × 10 = 200 coins
 - Storage: 5GB × 50 = 250 coins
 - Streaming: 100 × 5 = 500 coins
 - Maintenance: 100 coins
-- **Total: 850 coins/month**
+- **Total First Month: 1,150 coins**
 
-**Their 1,000 starter coins last ~1 month free!**
+**Monthly Cost After**: ~850 coins/month (no station creation fee)
+
+**Recommendation**: Buy Basic (1,100 coins) for ₦10,000, then top up monthly with Starter (500 coins) for ₦5,000
 
 ---
 
 ### Medium Station Owner
 **Usage**: 100 videos, 20GB storage, 300 hours streaming/month
 
-**Monthly Cost**:
-- Videos: 100 × 10 = 1,000 coins (one-time)
+**First Month Cost**:
+- Station creation: 100 coins (one-time)
+- Videos: 100 × 10 = 1,000 coins
 - Storage: 20GB × 50 = 1,000 coins
 - Streaming: 300 × 5 = 1,500 coins
 - Maintenance: 100 coins
-- **Total: 2,600 coins/month**
+- **Total First Month: 3,700 coins**
 
-**They buy the Standard package (2,800 coins) for ₦25,000**
+**Monthly Cost After**: ~2,600 coins/month
+
+**Recommendation**: Buy Pro (5,750 coins) for ₦50,000 - covers first month plus next month
 
 ---
 
 ### Large Station Owner
 **Usage**: 300 videos, 50GB storage, 500 hours streaming/month
 
-**Monthly Cost**:
-- Videos: 300 × 10 = 3,000 coins (one-time)
+**First Month Cost**:
+- Station creation: 100 coins (one-time)
+- Videos: 300 × 10 = 3,000 coins
 - Storage: 50GB × 50 = 2,500 coins
 - Streaming: 500 × 5 = 2,500 coins
 - Maintenance: 100 coins
-- **Total: 5,100 coins/month**
+- **Total First Month: 8,200 coins**
 
-**They buy the Pro package (5,750 coins) for ₦50,000**
+**Monthly Cost After**: ~5,100 coins/month
+
+**Recommendation**: Buy Premium (12,000 coins) for ₦100,000 - covers first month plus extra buffer
 
 ---
 
@@ -133,27 +147,6 @@ Your users' coins are deducted based on **actual platform usage**:
 
 ---
 
-## 🎁 The 1,000 Starter Coins Strategy
-
-**Why give 1,000 free coins?**
-
-It lets new users:
-- Test the full platform without paying first
-- Upload 100 videos to get started
-- Run their station for 1-2 months (light usage)
-- Experience everything before buying
-
-**Psychology:**
-- Users get invested in the platform
-- They build content library
-- When coins run out, they're already committed
-- Much higher conversion rate!
-
-**Cost to you:** Minimal - just server resources for 1-2 months
-**Benefit:** More users signing up and eventually buying coins
-
----
-
 ## 📈 What Happens When Coins Run Out?
 
 **User Experience:**
@@ -190,16 +183,18 @@ You can:
 ## 🎯 Bottom Line
 
 ### Old Way
-User pays ₦40,000/month regardless of usage → Many can't afford → Low signups
+User pays ₦40,000/month regardless of usage → Many can't afford → Low signups → Unhappy users
 
 ### New Way
-User gets 1,000 free coins → Tests platform → Uses what they need → Pays fairly → More signups, happier users
+User buys coins as needed → Pays only for what they use → Flexible top-ups → Fair pricing → More signups, happier users
 
 **Your revenue potential actually increases** because:
-- More users sign up (low barrier)
-- Light users don't quit (fair pricing)
-- Heavy users pay more (fair usage-based)
+- More users can afford to start (packages from ₦5,000)
+- Light users don't quit (fair pricing, no overpaying)
+- Medium users pay appropriately (₦10,000-25,000/month)
+- Heavy users pay more (fair usage-based pricing)
 - Everyone feels they're getting value
+- Users only pay for actual resources consumed
 
 ---
 
