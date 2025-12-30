@@ -14,10 +14,10 @@ ALTER TABLE stations ADD COLUMN IF NOT EXISTS display_settings_updated_at TIMEST
 -- Set default social badges for existing stations
 UPDATE stations
 SET social_badges = JSON_ARRAY(
-    JSON_OBJECT('icon', '𝕏', 'handle', CONCAT('@', REPLACE(name, ' ', '')), 'platform', 'Twitter'),
-    JSON_OBJECT('icon', '📘', 'handle', CONCAT('/', REPLACE(name, ' ', '')), 'platform', 'Facebook'),
-    JSON_OBJECT('icon', '📷', 'handle', CONCAT('@', REPLACE(name, ' ', '')), 'platform', 'Instagram'),
-    JSON_OBJECT('icon', '▶️', 'handle', REPLACE(name, ' ', ''), 'platform', 'YouTube')
+    JSON_OBJECT('icon', '𝕏', 'handle', CONCAT('@', REPLACE(station_name, ' ', '')), 'platform', 'Twitter'),
+    JSON_OBJECT('icon', '📘', 'handle', CONCAT('/', REPLACE(station_name, ' ', '')), 'platform', 'Facebook'),
+    JSON_OBJECT('icon', '📷', 'handle', CONCAT('@', REPLACE(station_name, ' ', '')), 'platform', 'Instagram'),
+    JSON_OBJECT('icon', '▶️', 'handle', REPLACE(station_name, ' ', ''), 'platform', 'YouTube')
 )
 WHERE social_badges IS NULL;
 
