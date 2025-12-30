@@ -100,29 +100,10 @@ $flash = get_flash();
                 </div>
             <?php endif; ?>
 
-            <?php if ($user['status'] == 'pending'): ?>
-                <div class="alert alert-warning">
-                    <strong>Station Pending Activation</strong>
-                    <p>Please make payment of ₦40,000 to activate your station.</p>
-                    <a href="payment.php" class="btn btn-small">Make Payment</a>
-                </div>
-            <?php elseif ($user['status'] == 'suspended'): ?>
+            <?php if ($user['status'] == 'suspended'): ?>
                 <div class="alert alert-danger">
-                    <strong>Station Suspended</strong>
-                    <p>Your subscription has expired. Please renew to continue.</p>
-                    <a href="payment.php" class="btn btn-small">Renew Now</a>
-                </div>
-            <?php elseif ($subscription && is_subscription_expired($subscription['end_date'])): ?>
-                <div class="alert alert-warning">
-                    <strong>Subscription Expired</strong>
-                    <p>Your subscription expired on <?php echo format_date($subscription['end_date']); ?>. Please renew.</p>
-                    <a href="payment.php" class="btn btn-small">Renew Now</a>
-                </div>
-            <?php elseif ($subscription && days_until($subscription['end_date']) <= 7): ?>
-                <div class="alert alert-warning">
-                    <strong>Subscription Expiring Soon</strong>
-                    <p>Your subscription expires in <?php echo days_until($subscription['end_date']); ?> days on <?php echo format_date($subscription['end_date']); ?>.</p>
-                    <a href="payment.php" class="btn btn-small">Renew Now</a>
+                    <strong>⚠️ Station Suspended</strong>
+                    <p>Your account has been suspended. Please contact support for assistance.</p>
                 </div>
             <?php endif; ?>
 
@@ -154,13 +135,6 @@ $flash = get_flash();
                     <div class="stat-number"><?php echo format_file_size($storage_used); ?></div>
                     <div class="stat-label">Storage Used</div>
                 </div>
-
-                <?php if ($subscription && $user['status'] == 'active'): ?>
-                <div class="stat-card">
-                    <div class="stat-number"><?php echo format_date($subscription['end_date']); ?></div>
-                    <div class="stat-label">Subscription Expires</div>
-                </div>
-                <?php endif; ?>
             </div>
 
             <?php if ($station && $user['status'] == 'active'): ?>

@@ -102,8 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $amount = $package['price'];
                         $description = "Coin purchase: {$package['coins']} coins + {$package['bonus']} bonus";
                     } else {
-                        $amount = $monthly_price;
-                        $description = "Monthly subscription payment";
+                        // Default to basic coin package if no package selected
+                        $amount = 10000;
+                        $description = "Coin purchase payment";
                     }
 
                     // Insert payment record
@@ -226,53 +227,18 @@ $flash = get_flash();
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                
+
                 <!-- Left Column -->
                 <div>
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title">Subscription Details</h2>
+                            <h2 class="card-title">💳 Bank Transfer Details</h2>
                         </div>
-                        
-                        <p><strong>Monthly Price:</strong> ₦<?php echo number_format($monthly_price); ?></p>
-                        
-                        <?php if ($subscription): ?>
-                            <p><strong>Current Period:</strong> 
-                                <?php echo format_date($subscription['start_date']); ?> - 
-                                <?php echo format_date($subscription['end_date']); ?>
-                            </p>
-                            <p><strong>Status:</strong> 
-                                <span class="badge badge-<?php echo $subscription['status'] == 'active' ? 'success' : 'danger'; ?>">
-                                    <?php echo ucfirst($subscription['status']); ?>
-                                </span>
-                            </p>
-                            
-                            <?php if ($subscription['status'] == 'active'): ?>
-                                <?php $days_left = days_until($subscription['end_date']); ?>
-                                <p><strong>Days Remaining:</strong> <?php echo $days_left; ?> days</p>
-                                
-                                <?php if ($days_left <= 7): ?>
-                                    <div class="alert alert-warning" style="margin-top: 1rem;">
-                                        Your subscription expires soon. Please renew to avoid interruption.
-                                    </div>
-                                <?php endif; ?>
-                            <?php else: ?>
-                                <div class="alert alert-danger" style="margin-top: 1rem;">
-                                    Your subscription has expired. Please make payment to reactivate.
-                                </div>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            <div class="alert alert-warning" style="margin-top: 1rem;">
-                                No active subscription. Please make your first payment.
-                            </div>
-                        <?php endif; ?>
-                    </div>
 
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">Bank Transfer Details</h2>
-                        </div>
-                        
+                        <p style="margin-bottom: 1.5rem; color: #6b7280;">
+                            Select a coin package above, then make bank transfer to the account below.
+                        </p>
+
                         <div style="background: #f3f4f6; padding: 1.5rem; border-radius: 8px;">
                             <p style="margin-bottom: 1rem;"><strong>Bank Name:</strong><br><?php echo clean($bank_name); ?></p>
                             <p style="margin-bottom: 1rem;"><strong>Account Number:</strong><br>
@@ -281,10 +247,47 @@ $flash = get_flash();
                             <p><strong>Account Name:</strong><br><?php echo clean($account_name); ?></p>
                         </div>
 
-                        <p style="margin-top: 1rem; font-size: 0.875rem; color: #6b7280;">
-                            <strong>Amount:</strong> ₦<?php echo number_format($monthly_price); ?><br>
-                            After making transfer, submit your payment receipt below.
-                        </p>
+                        <div style="margin-top: 1.5rem; padding: 1rem; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
+                            <p style="font-size: 0.875rem; color: #92400e; margin: 0;">
+                                <strong>⚠️ Important:</strong> After making the bank transfer, submit your payment receipt in the form on the right. Admin will review and credit your coins within 24 hours.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">📊 Coin Usage Breakdown</h2>
+                        </div>
+
+                        <div style="font-size: 0.875rem;">
+                            <p style="margin-bottom: 1rem; color: #6b7280;">
+                                Here's how coins are used in your account:
+                            </p>
+
+                            <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f9fafb; border-radius: 6px; margin-bottom: 0.5rem;">
+                                <span>📹 Video Upload</span>
+                                <strong>10 coins</strong>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f9fafb; border-radius: 6px; margin-bottom: 0.5rem;">
+                                <span>💾 Storage (per GB/month)</span>
+                                <strong>50 coins</strong>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f9fafb; border-radius: 6px; margin-bottom: 0.5rem;">
+                                <span>📡 Streaming (per hour)</span>
+                                <strong>5 coins</strong>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: #f9fafb; border-radius: 6px;">
+                                <span>🔧 Monthly Maintenance</span>
+                                <strong>100 coins</strong>
+                            </div>
+
+                            <p style="margin-top: 1rem; padding: 0.75rem; background: #e0f2fe; border-radius: 6px; font-size: 0.8125rem; color: #0c4a6e;">
+                                💡 <strong>Tip:</strong> The more you use the platform, the more coins you'll need. Monitor your balance regularly!
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -292,7 +295,7 @@ $flash = get_flash();
                 <div>
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title" id="formTitle">Submit Payment Proof</h2>
+                            <h2 class="card-title" id="formTitle">Submit Payment Proof for Coin Purchase</h2>
                         </div>
 
                         <div id="selectedPackageInfo" style="display: none; background: #f0fdf4; border: 2px solid #22c55e; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
@@ -305,7 +308,7 @@ $flash = get_flash();
 
                         <form method="POST" enctype="multipart/form-data" id="paymentForm">
                             <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
-                            <input type="hidden" name="payment_type" id="paymentType" value="subscription">
+                            <input type="hidden" name="payment_type" id="paymentType" value="coins">
                             <input type="hidden" name="coin_package" id="coinPackage" value="">
 
                             <div class="form-group">
@@ -417,15 +420,15 @@ $flash = get_flash();
         }
 
         function clearPackageSelection() {
-            // Reset hidden fields
-            document.getElementById('paymentType').value = 'subscription';
+            // Reset hidden fields (keep as coins)
+            document.getElementById('paymentType').value = 'coins';
             document.getElementById('coinPackage').value = '';
 
             // Hide package info
             document.getElementById('selectedPackageInfo').style.display = 'none';
 
             // Reset form title
-            document.getElementById('formTitle').textContent = 'Submit Payment Proof';
+            document.getElementById('formTitle').textContent = 'Submit Payment Proof for Coin Purchase';
 
             // Reset package highlighting
             document.querySelectorAll('.coin-package').forEach((el) => {
