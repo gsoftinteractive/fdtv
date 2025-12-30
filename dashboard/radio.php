@@ -100,6 +100,44 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && verify_csrf_token($_POST['csrf_token
         $station = $stmt->fetch();
     }
 
+    // Update radio playlist & jingle settings
+    if ($action == 'update_playlist_settings') {
+        $radio_playlist_mode = $_POST['radio_playlist_mode'] ?? 'shuffle';
+        $radio_jingle_enabled = isset($_POST['radio_jingle_enabled']) ? 1 : 0;
+        $radio_jingle_interval = (int)($_POST['radio_jingle_interval'] ?? 5);
+        $radio_advert_enabled = isset($_POST['radio_advert_enabled']) ? 1 : 0;
+        $radio_advert_interval = (int)($_POST['radio_advert_interval'] ?? 10);
+
+        // Validate intervals
+        if ($radio_jingle_interval < 1) $radio_jingle_interval = 1;
+        if ($radio_jingle_interval > 100) $radio_jingle_interval = 100;
+        if ($radio_advert_interval < 1) $radio_advert_interval = 1;
+        if ($radio_advert_interval > 100) $radio_advert_interval = 100;
+
+        $stmt = $conn->prepare("UPDATE stations SET
+            radio_playlist_mode = ?,
+            radio_jingle_enabled = ?,
+            radio_jingle_interval = ?,
+            radio_advert_enabled = ?,
+            radio_advert_interval = ?
+            WHERE id = ?");
+        $stmt->execute([
+            $radio_playlist_mode,
+            $radio_jingle_enabled,
+            $radio_jingle_interval,
+            $radio_advert_enabled,
+            $radio_advert_interval,
+            $station_id
+        ]);
+
+        $success = "Radio playlist and jingle settings updated successfully!";
+
+        // Refresh station data
+        $stmt = $conn->prepare("SELECT * FROM stations WHERE id = ?");
+        $stmt->execute([$station_id]);
+        $station = $stmt->fetch();
+    }
+
     // Add/Update stream
     if ($action == 'save_stream') {
         $stream_id = (int)($_POST['stream_id'] ?? 0);

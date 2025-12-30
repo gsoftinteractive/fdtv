@@ -237,6 +237,17 @@ body {
     font-weight: 500;
     z-index: 10;
     backdrop-filter: blur(10px);
+    cursor: grab;
+    user-select: none;
+    transition: box-shadow 0.2s;
+}
+
+.time-display:hover {
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+}
+
+.time-display:active {
+    cursor: grabbing;
 }
 
 /* Program Info Bar */
@@ -769,5 +780,25 @@ body {
 
     100% {
         opacity: 0;
+    }
+}
+
+/* Ticker color notification animation */
+@keyframes tickerNotificationFade {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    80% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
     }
 }

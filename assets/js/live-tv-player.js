@@ -60,6 +60,27 @@ class LiveTVPlayer {
         this.liveFeedContainer = document.getElementById('liveFeedContainer');
         this.liveFeedIframe = document.getElementById('liveFeedIframe');
         this.liveFeedVideo = document.getElementById('liveFeedVideo');
+        this.tickerBar = document.getElementById('tickerBar');
+        this.tickerLabel = document.querySelector('.ticker-label-text');
+        this.tickerText = document.querySelector('.ticker-text');
+        this.tickerTrack = document.getElementById('tickerTrack');
+        this.tickerContent = document.querySelector('.ticker-content');
+
+        // Ticker mode (single or double line)
+        this.isDoubleLineTicker = localStorage.getItem('fdtv_ticker_double_line') === 'true';
+
+        // Ticker color presets
+        this.tickerColorPresets = [
+            { name: 'Red', bg: '#dc2626', text: '#ffffff', label: 'BREAKING' },
+            { name: 'Purple', bg: '#7c3aed', text: '#ffffff', label: 'EVENTS' },
+            { name: 'Green', bg: '#059669', text: '#ffffff', label: 'SCHEDULE' },
+            { name: 'Blue', bg: '#2563eb', text: '#ffffff', label: 'NEWS' },
+            { name: 'Orange', bg: '#ea580c', text: '#ffffff', label: 'ALERT' },
+            { name: 'Pink', bg: '#db2777', text: '#ffffff', label: 'SPECIAL' },
+            { name: 'Teal', bg: '#0d9488', text: '#ffffff', label: 'UPDATE' },
+            { name: 'Indigo', bg: '#4f46e5', text: '#ffffff', label: 'INFO' }
+        ];
+        this.currentColorIndex = 0;
 
         // Check mode and content availability
         if (this.mode === 'live' && this.liveFeed) {
@@ -82,6 +103,389 @@ class LiveTVPlayer {
 
         // Initialize analytics tracking
         this.initAnalytics();
+
+        // Initialize ticker color change on click
+        this.initTickerColorChange();
+
+        // Initialize double-line ticker mode
+        this.initDoubleLineTicker();
+
+        // Initialize additional cool features
+        this.initKeyboardShortcutsHelp();
+        this.initPictureInPicture();
+        this.initTickerSpeedControl();
+    }
+
+    initDoubleLineTicker() {
+        if (!this.tickerBar || !this.tickerTrack || !this.tickerContent) return;
+
+        // Apply saved ticker mode
+        if (this.isDoubleLineTicker) {
+            this.enableDoubleLineTicker();
+        }
+
+        // Add keyboard shortcut (Ctrl/Cmd + T) to toggle ticker mode
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+                e.preventDefault();
+                this.toggleTickerMode();
+            }
+        });
+
+        // Add button to toggle ticker mode (optional UI control)
+        this.createTickerModeToggleButton();
+    }
+
+    createTickerModeToggleButton() {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.id = 'tickerModeToggle';
+        toggleBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+            </svg>
+        `;
+        toggleBtn.title = 'Toggle ticker mode (Ctrl+T)';
+        toggleBtn.style.cssText = `
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 5;
+        `;
+
+        toggleBtn.addEventListener('mouseenter', () => {
+            toggleBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+        });
+
+        toggleBtn.addEventListener('mouseleave', () => {
+            toggleBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        });
+
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleTickerMode();
+        });
+
+        this.tickerBar.style.position = 'relative';
+        this.tickerBar.appendChild(toggleBtn);
+    }
+
+    toggleTickerMode() {
+        this.isDoubleLineTicker = !this.isDoubleLineTicker;
+        localStorage.setItem('fdtv_ticker_double_line', this.isDoubleLineTicker);
+
+        if (this.isDoubleLineTicker) {
+            this.enableDoubleLineTicker();
+        } else {
+            this.disableDoubleLineTicker();
+        }
+
+        this.showTickerModeNotification();
+    }
+
+    enableDoubleLineTicker() {
+        // Increase ticker bar height
+        this.tickerBar.style.height = '72px';
+
+        // Make ticker content flex column with two lines
+        this.tickerContent.style.flexDirection = 'column';
+        this.tickerContent.style.gap = '4px';
+        this.tickerContent.style.padding = '8px 0';
+
+        // Clone the ticker track for second line
+        if (!document.getElementById('tickerTrack2')) {
+            const originalText = this.tickerText.textContent;
+
+            // Split text into two lines (or duplicate for demo)
+            const midPoint = Math.floor(originalText.length / 2);
+            const line1Text = originalText.substring(0, midPoint);
+            const line2Text = originalText.substring(midPoint);
+
+            // Update first line
+            this.tickerText.textContent = line1Text;
+
+            // Create second track
+            const track2 = this.tickerTrack.cloneNode(true);
+            track2.id = 'tickerTrack2';
+            const track2Text = track2.querySelector('.ticker-text');
+            track2Text.textContent = line2Text;
+
+            this.tickerContent.appendChild(track2);
+        }
+    }
+
+    disableDoubleLineTicker() {
+        // Reset ticker bar height
+        this.tickerBar.style.height = '44px';
+
+        // Reset ticker content
+        this.tickerContent.style.flexDirection = 'row';
+        this.tickerContent.style.gap = '0';
+        this.tickerContent.style.padding = '0';
+
+        // Remove second track if exists
+        const track2 = document.getElementById('tickerTrack2');
+        if (track2) {
+            track2.remove();
+        }
+
+        // Restore original text (you might want to store the original)
+        if (this.station && this.station.ticker) {
+            this.tickerText.textContent = this.station.ticker;
+        }
+    }
+
+    showTickerModeNotification() {
+        const mode = this.isDoubleLineTicker ? 'Double Line' : 'Single Line';
+        const icon = this.isDoubleLineTicker
+            ? '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/>'
+            : '<line x1="3" y1="12" x2="21" y2="12"/>';
+
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            border: 2px solid #7c3aed;
+            animation: tickerNotificationFade 1.5s ease-out forwards;
+        `;
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    ${icon}
+                </svg>
+                <span>Ticker Mode: ${mode}</span>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.remove();
+        }, 1500);
+    }
+
+    initTickerColorChange() {
+        if (!this.tickerBar) return;
+
+        // Load saved color index from localStorage
+        const savedIndex = localStorage.getItem('fdtv_ticker_color_index');
+        if (savedIndex !== null) {
+            this.currentColorIndex = parseInt(savedIndex);
+            this.applyTickerColor(this.currentColorIndex);
+        }
+
+        // Add click event to ticker bar
+        this.tickerBar.addEventListener('click', () => {
+            this.currentColorIndex = (this.currentColorIndex + 1) % this.tickerColorPresets.length;
+            this.applyTickerColor(this.currentColorIndex);
+
+            // Save to localStorage
+            localStorage.setItem('fdtv_ticker_color_index', this.currentColorIndex);
+
+            // Show brief notification
+            this.showTickerColorNotification();
+        });
+
+        // Make ticker clickable with pointer cursor
+        this.tickerBar.style.cursor = 'pointer';
+        this.tickerBar.title = 'Click to change ticker color';
+
+        // Make ticker label editable on double-click
+        this.initTickerLabelEdit();
+    }
+
+    initTickerLabelEdit() {
+        if (!this.tickerLabel) return;
+
+        // Load saved custom label from localStorage
+        const savedLabel = localStorage.getItem('fdtv_ticker_label');
+        if (savedLabel) {
+            this.tickerLabel.textContent = savedLabel;
+        }
+
+        // Add double-click event to edit label
+        this.tickerLabel.addEventListener('dblclick', (e) => {
+            e.stopPropagation(); // Prevent ticker color change
+            this.makeTickerLabelEditable();
+        });
+
+        // Add styling hint
+        this.tickerLabel.style.cursor = 'text';
+        this.tickerLabel.title = 'Double-click to edit label';
+    }
+
+    makeTickerLabelEditable() {
+        const currentText = this.tickerLabel.textContent;
+
+        // Create input field
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentText;
+        input.maxLength = 15;
+        input.style.cssText = `
+            background: white;
+            color: #000;
+            border: 2px solid #7c3aed;
+            padding: 6px 12px;
+            font-weight: 800;
+            font-size: 0.875rem;
+            letter-spacing: 2px;
+            text-align: center;
+            width: 120px;
+            outline: none;
+            text-transform: uppercase;
+        `;
+
+        // Replace label with input
+        const labelParent = this.tickerLabel.parentElement;
+        const placeholder = document.createElement('span');
+        placeholder.style.cssText = this.tickerLabel.style.cssText;
+        labelParent.replaceChild(input, this.tickerLabel);
+
+        // Focus and select
+        input.focus();
+        input.select();
+
+        // Save on blur or enter
+        const saveLabel = () => {
+            let newText = input.value.trim().toUpperCase();
+            if (!newText) newText = 'BREAKING';
+
+            this.tickerLabel.textContent = newText;
+            labelParent.replaceChild(this.tickerLabel, input);
+
+            // Save to localStorage
+            localStorage.setItem('fdtv_ticker_label', newText);
+
+            // Show notification
+            this.showTickerLabelNotification(newText);
+        };
+
+        input.addEventListener('blur', saveLabel);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveLabel();
+            } else if (e.key === 'Escape') {
+                this.tickerLabel.textContent = currentText;
+                labelParent.replaceChild(this.tickerLabel, input);
+            }
+        });
+
+        // Prevent ticker click event
+        input.addEventListener('click', (e) => e.stopPropagation());
+    }
+
+    showTickerLabelNotification(label) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            border: 2px solid #7c3aed;
+            animation: tickerNotificationFade 1.5s ease-out forwards;
+        `;
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                <span>Label updated: "${label}"</span>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.remove();
+        }, 1500);
+    }
+
+    applyTickerColor(index) {
+        const preset = this.tickerColorPresets[index];
+
+        // Apply background color to ticker bar
+        this.tickerBar.style.background = preset.bg;
+
+        // Apply text color to ticker text
+        if (this.tickerText) {
+            this.tickerText.style.color = preset.text;
+        }
+
+        // Apply label color and text
+        if (this.tickerLabel) {
+            this.tickerLabel.style.color = preset.bg;
+            this.tickerLabel.textContent = preset.label;
+        }
+    }
+
+    showTickerColorNotification() {
+        const preset = this.tickerColorPresets[this.currentColorIndex];
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'ticker-color-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            border: 2px solid ${preset.bg};
+            animation: tickerNotificationFade 1.5s ease-out forwards;
+        `;
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 24px; height: 24px; background: ${preset.bg}; border-radius: 4px;"></div>
+                <span>${preset.name} - ${preset.label}</span>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Remove after animation
+        setTimeout(() => {
+            notification.remove();
+        }, 1500);
     }
 
     initPlaylistMode() {
@@ -784,6 +1188,89 @@ class LiveTVPlayer {
 
         updateTime();
         setInterval(updateTime, 1000);
+
+        // Make time display draggable
+        this.makeTimeDisplayDraggable();
+    }
+
+    makeTimeDisplayDraggable() {
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        // Load saved position from localStorage
+        const savedPosition = localStorage.getItem('fdtv_time_position');
+        if (savedPosition) {
+            const pos = JSON.parse(savedPosition);
+            xOffset = pos.x;
+            yOffset = pos.y;
+            this.setTimeDisplayPosition(pos.x, pos.y);
+        }
+
+        this.timeDisplay.addEventListener('mousedown', dragStart);
+        this.timeDisplay.addEventListener('touchstart', dragStart);
+
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('touchmove', drag);
+
+        document.addEventListener('mouseup', dragEnd);
+        document.addEventListener('touchend', dragEnd);
+
+        const dragStart = (e) => {
+            if (e.type === 'touchstart') {
+                initialX = e.touches[0].clientX - xOffset;
+                initialY = e.touches[0].clientY - yOffset;
+            } else {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+            }
+
+            if (e.target === this.timeDisplay || e.target.closest('#timeDisplay')) {
+                isDragging = true;
+                this.timeDisplay.style.cursor = 'grabbing';
+            }
+        };
+
+        const drag = (e) => {
+            if (isDragging) {
+                e.preventDefault();
+
+                if (e.type === 'touchmove') {
+                    currentX = e.touches[0].clientX - initialX;
+                    currentY = e.touches[0].clientY - initialY;
+                } else {
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                }
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                this.setTimeDisplayPosition(currentX, currentY);
+            }
+        };
+
+        const dragEnd = () => {
+            if (isDragging) {
+                initialX = currentX;
+                initialY = currentY;
+                isDragging = false;
+                this.timeDisplay.style.cursor = 'grab';
+
+                // Save position to localStorage
+                localStorage.setItem('fdtv_time_position', JSON.stringify({ x: xOffset, y: yOffset }));
+            }
+        };
+    }
+
+    setTimeDisplayPosition(x, y) {
+        this.timeDisplay.style.transform = `translate(${x}px, ${y}px) translateX(-50%)`;
+        this.timeDisplay.style.left = '50%';
+        this.timeDisplay.style.top = '20px';
     }
 
     // Viewer count simulation
@@ -916,6 +1403,234 @@ class LiveTVPlayer {
             method: 'POST',
             body: data
         }).catch(() => {});
+    }
+
+    // Keyboard Shortcuts Help Panel
+    initKeyboardShortcutsHelp() {
+        // Add keyboard listener for help panel (press '?' or 'H')
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '?' || (e.key === 'h' && !e.ctrlKey && !e.metaKey)) {
+                e.preventDefault();
+                this.toggleKeyboardHelp();
+            }
+        });
+    }
+
+    toggleKeyboardHelp() {
+        let helpPanel = document.getElementById('keyboardHelpPanel');
+
+        if (helpPanel) {
+            helpPanel.remove();
+            return;
+        }
+
+        helpPanel = document.createElement('div');
+        helpPanel.id = 'keyboardHelpPanel';
+        helpPanel.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 32px;
+            border-radius: 16px;
+            max-width: 600px;
+            width: 90%;
+            z-index: 10000;
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(124, 58, 237, 0.5);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+        `;
+
+        helpPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin: 0; font-size: 1.5rem;">⌨️ Keyboard Shortcuts</h2>
+                <button id="closeHelpBtn" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;">✕</button>
+            </div>
+            <div style="display: grid; gap: 12px; font-size: 0.95rem;">
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">M</kbd>
+                    <span>Mute/Unmute audio</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">F</kbd>
+                    <span>Toggle fullscreen</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">↑ / ↓</kbd>
+                    <span>Volume up/down</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">Ctrl + T</kbd>
+                    <span>Toggle single/double line ticker</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">Ctrl + P</kbd>
+                    <span>Toggle Picture-in-Picture</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">+/-</kbd>
+                    <span>Increase/decrease ticker speed</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0;">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">? or H</kbd>
+                    <span>Show this help panel</span>
+                </div>
+            </div>
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: rgba(255,255,255,0.6); font-size: 0.875rem;">
+                Click anywhere to close
+            </div>
+        `;
+
+        document.body.appendChild(helpPanel);
+
+        // Close button
+        document.getElementById('closeHelpBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpPanel.remove();
+        });
+
+        // Close on click
+        helpPanel.addEventListener('click', () => {
+            helpPanel.remove();
+        });
+
+        // Prevent clicks inside from closing
+        helpPanel.querySelector('div').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
+
+    // Picture-in-Picture Mode
+    initPictureInPicture() {
+        // Check if PiP is supported
+        if (!document.pictureInPictureEnabled) {
+            return;
+        }
+
+        // Add keyboard shortcut (Ctrl/Cmd + P)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                this.togglePictureInPicture();
+            }
+        });
+
+        // Add PiP button to controls
+        this.addPiPButton();
+    }
+
+    addPiPButton() {
+        const pipBtn = document.createElement('button');
+        pipBtn.className = 'control-btn';
+        pipBtn.id = 'pipBtn';
+        pipBtn.title = 'Picture-in-Picture (Ctrl+P)';
+        pipBtn.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <rect x="13" y="11" width="7" height="6" rx="1" fill="currentColor"/>
+            </svg>
+        `;
+
+        pipBtn.addEventListener('click', () => this.togglePictureInPicture());
+
+        // Add to control bar
+        const controlRight = document.querySelector('.control-right');
+        if (controlRight) {
+            controlRight.insertBefore(pipBtn, controlRight.firstChild);
+        }
+    }
+
+    async togglePictureInPicture() {
+        try {
+            if (document.pictureInPictureElement) {
+                await document.exitPictureInPicture();
+            } else {
+                if (this.mode === 'playlist' && this.player) {
+                    await this.player.requestPictureInPicture();
+                }
+            }
+        } catch (error) {
+            console.log('PiP error:', error);
+        }
+    }
+
+    // Ticker Speed Control
+    initTickerSpeedControl() {
+        if (!this.tickerTrack) return;
+
+        this.tickerSpeed = parseFloat(localStorage.getItem('fdtv_ticker_speed')) || 60;
+        this.updateTickerSpeed();
+
+        // Add keyboard shortcuts (+/- to adjust speed)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '+' || e.key === '=') {
+                e.preventDefault();
+                this.adjustTickerSpeed(-10); // Faster (lower duration)
+            } else if (e.key === '-' || e.key === '_') {
+                e.preventDefault();
+                this.adjustTickerSpeed(10); // Slower (higher duration)
+            }
+        });
+    }
+
+    adjustTickerSpeed(change) {
+        this.tickerSpeed = Math.max(20, Math.min(120, this.tickerSpeed + change));
+        localStorage.setItem('fdtv_ticker_speed', this.tickerSpeed);
+        this.updateTickerSpeed();
+        this.showTickerSpeedNotification();
+    }
+
+    updateTickerSpeed() {
+        if (this.tickerTrack) {
+            this.tickerTrack.style.animationDuration = `${this.tickerSpeed}s`;
+        }
+
+        const track2 = document.getElementById('tickerTrack2');
+        if (track2) {
+            track2.style.animationDuration = `${this.tickerSpeed}s`;
+        }
+    }
+
+    showTickerSpeedNotification() {
+        const speedLabel = this.tickerSpeed <= 30 ? 'Very Fast' :
+                          this.tickerSpeed <= 45 ? 'Fast' :
+                          this.tickerSpeed <= 70 ? 'Normal' :
+                          this.tickerSpeed <= 90 ? 'Slow' : 'Very Slow';
+
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            border: 2px solid #7c3aed;
+            animation: tickerNotificationFade 1.5s ease-out forwards;
+        `;
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>Ticker Speed: ${speedLabel}</span>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.remove();
+        }, 1500);
     }
 
     // Cleanup method

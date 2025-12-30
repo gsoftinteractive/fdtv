@@ -92,6 +92,13 @@ try {
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-bg">
+            <!-- Video Background -->
+            <video class="hero-video-bg" autoplay muted loop playsinline>
+                <source src="assets/videos/hero-bg.mp4" type="video/mp4">
+                <!-- Fallback to animated background if video fails -->
+            </video>
+            <div class="hero-video-overlay"></div>
+
             <div class="floating-orb orb-1"></div>
             <div class="floating-orb orb-2"></div>
             <div class="floating-orb orb-3"></div>
