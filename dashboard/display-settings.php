@@ -1,4 +1,8 @@
 <?php
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 session_start();
 require_once '../config/database.php';
 require_once '../includes/functions.php';
@@ -12,7 +16,7 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 
 // Get user's station
-$stmt = $pdo->prepare("SELECT * FROM stations WHERE user_id = ? LIMIT 1");
+$stmt = $conn->prepare("SELECT * FROM stations WHERE user_id = ? LIMIT 1");
 $stmt->execute([$user_id]);
 $station = $stmt->fetch();
 
@@ -77,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // Update database
-                $stmt = $pdo->prepare("
+                $stmt = $conn->prepare("
                     UPDATE stations SET
                         ticker_color = ?,
                         ticker_label = ?,
@@ -106,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = 'Display settings updated successfully! All viewers will see these changes.';
 
                 // Refresh station data
-                $stmt = $pdo->prepare("SELECT * FROM stations WHERE id = ?");
+                $stmt = $conn->prepare("SELECT * FROM stations WHERE id = ?");
                 $stmt->execute([$station['id']]);
                 $station = $stmt->fetch();
 
