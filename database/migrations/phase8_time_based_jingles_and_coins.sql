@@ -100,9 +100,19 @@ ALTER TABLE stations
 ADD COLUMN IF NOT EXISTS total_storage_used BIGINT DEFAULT 0 COMMENT 'Total storage in bytes' AFTER last_coin_deduction;
 
 -- =====================================================
+-- PART 4: UPDATE PAYMENTS TABLE FOR COIN PURCHASES
+-- =====================================================
+
+-- Add payment_type and description columns to payments table
+ALTER TABLE payments
+ADD COLUMN IF NOT EXISTS payment_type ENUM('subscription', 'coins') DEFAULT 'subscription' COMMENT 'Type of payment' AFTER status,
+ADD COLUMN IF NOT EXISTS description TEXT COMMENT 'Payment description' AFTER payment_type;
+
+-- =====================================================
 -- VERIFICATION QUERIES
 -- =====================================================
 -- Run these to verify:
 -- SELECT * FROM coin_pricing;
 -- SELECT id, email, coins FROM users WHERE status = 'active';
 -- DESCRIBE coin_transactions;
+-- DESCRIBE payments;

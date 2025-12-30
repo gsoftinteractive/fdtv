@@ -34,57 +34,87 @@ $subscription = $stmt->fetch();
 
 $errors = [];
 
+// Coin packages
+$coin_packages = [
+    ['coins' => 500, 'price' => 5000, 'bonus' => 0, 'label' => 'Starter'],
+    ['coins' => 1000, 'price' => 10000, 'bonus' => 100, 'label' => 'Basic'],
+    ['coins' => 2500, 'price' => 25000, 'bonus' => 300, 'label' => 'Standard'],
+    ['coins' => 5000, 'price' => 50000, 'bonus' => 750, 'label' => 'Pro'],
+    ['coins' => 10000, 'price' => 100000, 'bonus' => 2000, 'label' => 'Premium']
+];
+
 // Handle payment submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    
+
     if (!verify_csrf_token($_POST['csrf_token'])) {
         $errors[] = "Invalid request.";
     } else {
-        
+
+        $payment_type = $_POST['payment_type'] ?? 'subscription'; // 'subscription' or 'coins'
         $reference = trim($_POST['reference']);
-        
+
         if (empty($reference)) {
             $errors[] = "Payment reference is required.";
         }
-        
+
         if (!isset($_FILES['receipt']) || $_FILES['receipt']['error'] != 0) {
             $errors[] = "Please upload payment receipt.";
         }
-        
-        if (empty($errors)) {
-            
-            $file = $_FILES['receipt'];
-            $allowed_types = ['image/jpeg', 'image/png', 'image/jpg'];
-            
-            if (!in_array($file['type'], $allowed_types)) {
-                $errors[] = "Only JPG, PNG images allowed.";
+
+        // Validate coin package if purchasing coins
+        if ($payment_type === 'coins') {
+            $coin_package_index = (int)($_POST['coin_package'] ?? -1);
+            if (!isset($coin_packages[$coin_package_index])) {
+                $errors[] = "Invalid coin package selected.";
             }
-            
+        }
+
+        if (empty($errors)) {
+
+            $file = $_FILES['receipt'];
+            $allowed_types = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+
+            if (!in_array($file['type'], $allowed_types)) {
+                $errors[] = "Only JPG, PNG, PDF files allowed.";
+            }
+
             if ($file['size'] > 5242880) { // 5MB
                 $errors[] = "File too large. Max 5MB.";
             }
-            
+
             if (empty($errors)) {
-                
+
                 // Create upload directory
                 $upload_dir = UPLOAD_PATH . 'receipts/';
                 if (!file_exists($upload_dir)) {
                     mkdir($upload_dir, 0755, true);
                 }
-                
+
                 $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
                 $filename = 'receipt_' . $user_id . '_' . time() . '.' . $extension;
                 $file_path = $upload_dir . $filename;
-                
+
                 if (move_uploaded_file($file['tmp_name'], $file_path)) {
-                    
+
+                    // Determine amount based on payment type
+                    if ($payment_type === 'coins') {
+                        $package = $coin_packages[$coin_package_index];
+                        $amount = $package['price'];
+                        $description = "Coin purchase: {$package['coins']} coins + {$package['bonus']} bonus";
+                    } else {
+                        $amount = $monthly_price;
+                        $description = "Monthly subscription payment";
+                    }
+
                     // Insert payment record
-                    $stmt = $conn->prepare("INSERT INTO payments (user_id, amount, reference, receipt_image, status) VALUES (?, ?, ?, ?, 'pending')");
-                    $stmt->execute([$user_id, $monthly_price, $reference, $filename]);
-                    
+                    $stmt = $conn->prepare("INSERT INTO payments
+                        (user_id, amount, reference, receipt_image, status, payment_type, description)
+                        VALUES (?, ?, ?, ?, 'pending', ?, ?)");
+                    $stmt->execute([$user_id, $amount, $reference, $filename, $payment_type, $description]);
+
                     set_flash("Payment submitted successfully! Admin will review and approve shortly.", "success");
                     redirect('payment.php');
-                    
+
                 } else {
                     $errors[] = "Failed to upload receipt. Please try again.";
                 }
@@ -125,7 +155,7 @@ $flash = get_flash();
 
     <div class="dashboard">
         <div class="container">
-            <h1>Payment & Subscription</h1>
+            <h1>Payment & Coins</h1>
 
             <?php if ($flash): ?>
                 <div class="alert alert-<?php echo $flash['type']; ?>">
@@ -140,6 +170,60 @@ $flash = get_flash();
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
+
+            <!-- Coin Balance Display -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 16px; margin-bottom: 2rem; text-align: center;">
+                <div style="font-size: 1rem; opacity: 0.9; margin-bottom: 0.5rem;">Your Coin Balance</div>
+                <div style="font-size: 3.5rem; font-weight: 700; margin-bottom: 1rem;">
+                    <?php echo number_format($user['coins'] ?? 0); ?> 💰
+                </div>
+                <p style="opacity: 0.95; max-width: 600px; margin: 0 auto;">
+                    Coins are used for video uploads, storage, and streaming. Purchase coin packages below to top up your balance.
+                </p>
+            </div>
+
+            <!-- Coin Packages -->
+            <div class="card" style="margin-bottom: 2rem;">
+                <div class="card-header">
+                    <h2 class="card-title">Buy Coin Packages</h2>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                    <?php foreach ($coin_packages as $index => $package): ?>
+                    <div class="coin-package" style="
+                        border: 2px solid #e5e7eb;
+                        border-radius: 12px;
+                        padding: 1.5rem;
+                        text-align: center;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        position: relative;
+                    " onclick="selectCoinPackage(<?php echo $index; ?>, <?php echo $package['price']; ?>)">
+                        <?php if ($package['bonus'] > 0): ?>
+                            <div style="position: absolute; top: -10px; right: -10px; background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+                                +<?php echo $package['bonus']; ?> Bonus!
+                            </div>
+                        <?php endif; ?>
+                        <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;"><?php echo $package['label']; ?></div>
+                        <div style="font-size: 2.5rem; font-weight: 700; color: #7c3aed; margin-bottom: 0.5rem;">
+                            <?php echo number_format($package['coins']); ?>
+                        </div>
+                        <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;">Coins</div>
+                        <?php if ($package['bonus'] > 0): ?>
+                            <div style="font-size: 0.875rem; color: #059669; margin-bottom: 1rem; font-weight: 600;">
+                                Total: <?php echo number_format($package['coins'] + $package['bonus']); ?> coins
+                            </div>
+                        <?php endif; ?>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #111827; margin-top: 1rem;">
+                            ₦<?php echo number_format($package['price']); ?>
+                        </div>
+                        <button type="button" class="btn btn-small" style="margin-top: 1rem; width: 100%;" onclick="event.stopPropagation(); selectCoinPackage(<?php echo $index; ?>, <?php echo $package['price']; ?>)">
+                            Select
+                        </button>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
                 
@@ -208,12 +292,22 @@ $flash = get_flash();
                 <div>
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title">Submit Payment Proof</h2>
+                            <h2 class="card-title" id="formTitle">Submit Payment Proof</h2>
                         </div>
 
-                        <form method="POST" enctype="multipart/form-data">
+                        <div id="selectedPackageInfo" style="display: none; background: #f0fdf4; border: 2px solid #22c55e; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <strong>Selected Package:</strong>
+                            <div id="packageDetails" style="margin-top: 0.5rem;"></div>
+                            <button type="button" onclick="clearPackageSelection()" class="btn btn-small btn-secondary" style="margin-top: 0.5rem;">
+                                Change Package
+                            </button>
+                        </div>
+
+                        <form method="POST" enctype="multipart/form-data" id="paymentForm">
                             <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
-                            
+                            <input type="hidden" name="payment_type" id="paymentType" value="subscription">
+                            <input type="hidden" name="coin_package" id="coinPackage" value="">
+
                             <div class="form-group">
                                 <label>Payment Reference / Transaction ID *</label>
                                 <input type="text" name="reference" placeholder="e.g., TXN123456789" required>
@@ -222,8 +316,8 @@ $flash = get_flash();
 
                             <div class="form-group">
                                 <label>Upload Receipt / Screenshot *</label>
-                                <input type="file" name="receipt" accept="image/*" required>
-                                <small style="color: #6b7280;">JPG, PNG only. Max 5MB</small>
+                                <input type="file" name="receipt" accept="image/*,application/pdf" required>
+                                <small style="color: #6b7280;">JPG, PNG, PDF only. Max 5MB</small>
                             </div>
 
                             <button type="submit" class="btn" style="width: 100%;">Submit Payment</button>
@@ -279,5 +373,85 @@ $flash = get_flash();
             </div>
         </div>
     </div>
+
+    <script>
+        const coinPackages = <?php echo json_encode($coin_packages); ?>;
+
+        function selectCoinPackage(index, price) {
+            const package = coinPackages[index];
+
+            // Update hidden fields
+            document.getElementById('paymentType').value = 'coins';
+            document.getElementById('coinPackage').value = index;
+
+            // Show selected package info
+            const detailsHtml = `
+                <div style="font-size: 1.25rem; font-weight: 700; color: #7c3aed; margin-bottom: 0.5rem;">
+                    ${package.coins.toLocaleString()} coins ${package.bonus > 0 ? '+ ' + package.bonus + ' bonus' : ''}
+                </div>
+                <div style="font-size: 1rem; color: #6b7280;">
+                    ${package.label} Package - ₦${price.toLocaleString()}
+                </div>
+            `;
+            document.getElementById('packageDetails').innerHTML = detailsHtml;
+            document.getElementById('selectedPackageInfo').style.display = 'block';
+
+            // Update form title
+            document.getElementById('formTitle').textContent = 'Submit Payment Proof for Coin Package';
+
+            // Highlight selected package
+            document.querySelectorAll('.coin-package').forEach((el, i) => {
+                if (i === index) {
+                    el.style.borderColor = '#7c3aed';
+                    el.style.borderWidth = '3px';
+                    el.style.background = '#f5f3ff';
+                } else {
+                    el.style.borderColor = '#e5e7eb';
+                    el.style.borderWidth = '2px';
+                    el.style.background = 'white';
+                }
+            });
+
+            // Scroll to form
+            document.getElementById('paymentForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function clearPackageSelection() {
+            // Reset hidden fields
+            document.getElementById('paymentType').value = 'subscription';
+            document.getElementById('coinPackage').value = '';
+
+            // Hide package info
+            document.getElementById('selectedPackageInfo').style.display = 'none';
+
+            // Reset form title
+            document.getElementById('formTitle').textContent = 'Submit Payment Proof';
+
+            // Reset package highlighting
+            document.querySelectorAll('.coin-package').forEach((el) => {
+                el.style.borderColor = '#e5e7eb';
+                el.style.borderWidth = '2px';
+                el.style.background = 'white';
+            });
+        }
+
+        // Add hover effects to coin packages
+        document.querySelectorAll('.coin-package').forEach((el) => {
+            el.addEventListener('mouseenter', function() {
+                if (this.style.borderColor !== 'rgb(124, 58, 237)') {
+                    this.style.borderColor = '#9ca3af';
+                    this.style.transform = 'translateY(-4px)';
+                    this.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                }
+            });
+            el.addEventListener('mouseleave', function() {
+                if (this.style.borderColor !== 'rgb(124, 58, 237)') {
+                    this.style.borderColor = '#e5e7eb';
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = 'none';
+                }
+            });
+        });
+    </script>
 </body>
 </html>

@@ -77,6 +77,29 @@ $flash = get_flash();
                 </div>
             <?php endif; ?>
 
+            <?php
+            // Coin balance warnings
+            $user_coins = $user['coins'] ?? 0;
+            if ($user_coins <= 0): ?>
+                <div class="alert alert-danger">
+                    <strong>⚠️ No Coins Remaining</strong>
+                    <p>Your coin balance is empty. You cannot upload videos or access features until you purchase more coins.</p>
+                    <a href="payment.php" class="btn btn-small">Buy Coins Now</a>
+                </div>
+            <?php elseif ($user_coins < 100): ?>
+                <div class="alert alert-warning">
+                    <strong>💰 Low Coin Balance</strong>
+                    <p>You have only <?php echo $user_coins; ?> coins remaining. Consider purchasing more coins to avoid service interruption.</p>
+                    <a href="payment.php" class="btn btn-small">Buy Coins</a>
+                </div>
+            <?php elseif ($user_coins < 200): ?>
+                <div class="alert alert-info" style="background: #dbeafe; border-color: #3b82f6; color: #1e40af;">
+                    <strong>💡 Coin Balance Low</strong>
+                    <p>You have <?php echo $user_coins; ?> coins. Make sure to top up soon.</p>
+                    <a href="payment.php" class="btn btn-small">Buy Coins</a>
+                </div>
+            <?php endif; ?>
+
             <?php if ($user['status'] == 'pending'): ?>
                 <div class="alert alert-warning">
                     <strong>Station Pending Activation</strong>
@@ -104,6 +127,19 @@ $flash = get_flash();
             <?php endif; ?>
 
             <div class="dashboard-grid">
+                <!-- Coin Balance - Prominent Display -->
+                <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <div class="stat-number" style="font-size: 2.5rem;">
+                        <?php
+                        $user_coins = $user['coins'] ?? 0;
+                        echo number_format($user_coins);
+                        ?>
+                        💰
+                    </div>
+                    <div class="stat-label" style="color: rgba(255,255,255,0.9);">Coin Balance</div>
+                    <a href="payment.php" style="color: white; text-decoration: underline; font-size: 0.875rem; margin-top: 0.5rem; display: inline-block;">Buy More Coins</a>
+                </div>
+
                 <div class="stat-card">
                     <div class="stat-number"><?php echo $user['status'] == 'active' ? 'Active' : ucfirst($user['status']); ?></div>
                     <div class="stat-label">Station Status</div>
