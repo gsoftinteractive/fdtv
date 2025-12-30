@@ -163,11 +163,88 @@ Based on research of professional broadcast software (vMix), we implemented:
 
 ---
 
+## ✅ 7. Lower Thirds (Name/Title Overlays)
+
+### What Was Added:
+- **Professional Name/Title Graphics**: Broadcast-quality lower third overlays for presenter identification
+- **3 Design Styles**: Modern Minimal, Bold Accent, and News Style
+- **Custom Editor**: Create and edit lower thirds with name and title fields
+- **10 Preset Slots**: Save up to 10 custom lower thirds for quick access
+- **Smooth Animations**: Slide-in from left with cubic-bezier transitions
+- **Keyboard Shortcuts**:
+  - **L** - Show/hide current lower third
+  - **Ctrl + L** - Open lower third editor
+  - **Ctrl + 1-5** - Quick load presets 1-5
+
+### Inspiration from Professional Broadcast:
+Based on research of professional broadcast graphics (CNN, BBC, vMix):
+- Customizable name and title fields
+- Multiple professional design presets
+- Animated entrance/exit
+- Professional inline editing experience
+
+### How to Use:
+1. **Press Ctrl + L** to open the lower third editor
+2. Select a style (Modern, Bold, or News)
+3. Enter name (e.g., "John Smith") and title (e.g., "Political Analyst")
+4. Click "Save & Show" to display the lower third
+5. **Press L** to toggle visibility
+6. Save multiple presets for different presenters
+
+### Available Styles:
+1. **Modern Minimal**: Clean gradient design with left border accent
+2. **Bold Accent**: High-contrast design with colored name block
+3. **News Style**: Classic news broadcast look with solid background
+
+### Files Modified:
+- [`assets/js/live-tv-player.js`](assets/js/live-tv-player.js#L1638-L1853) - Lower thirds logic
+- [`assets/css/live-tv.css`](assets/css/live-tv.css#L806-L920) - Lower third styles and animations
+
+---
+
+## ✅ 8. Social Media Badges (Animated Handles)
+
+### What Was Added:
+- **Cycling Social Badges**: Automatically cycles through social media handles every 5 seconds
+- **4 Default Platforms**: Twitter (𝕏), Facebook (📘), Instagram (📷), YouTube (▶️)
+- **Custom Editor**: Edit icons and handles for each platform
+- **Professional Design**: Pill-shaped badges with icons and handles
+- **Smooth Animations**: Slide-in from right with fade effects
+- **Keyboard Shortcuts**:
+  - **@** - Toggle social badges on/off
+  - **Ctrl + @** - Open social badges editor
+
+### Inspiration from Professional Broadcast:
+Based on research of modern streaming platforms (StreamYard, news broadcasts):
+- Animated social media promotion
+- Cycling display to avoid screen clutter
+- Professional badge design with icons
+- Customizable for each station
+
+### How to Use:
+1. **Press Ctrl + @** to open the social badges editor
+2. Customize icons and handles for your social platforms
+3. Click "Save & Start Cycling" to begin displaying badges
+4. Badges will automatically cycle every 5 seconds
+5. **Press @** to toggle the cycling display on/off
+
+### Customization:
+- Change emoji icons (e.g., 𝕏, 📘, 📷, ▶️, 🎵)
+- Edit handles (e.g., @YourStation, facebook.com/YourStation)
+- Add up to 4 social platforms
+- Settings saved to localStorage
+
+### Files Modified:
+- [`assets/js/live-tv-player.js`](assets/js/live-tv-player.js#L1855-L2042) - Social badges logic
+- [`assets/css/live-tv.css`](assets/css/live-tv.css#L922-L962) - Social badge styles and animations
+
+---
+
 ## 🎁 BONUS: Additional Cool Features
 
 Beyond the client's requests, I added several professional features:
 
-### 7. Keyboard Shortcuts Help Panel
+### 9. Keyboard Shortcuts Help Panel
 
 **Press `?` or `H` to see all keyboard shortcuts**
 
@@ -178,9 +255,13 @@ Available shortcuts:
 - **Ctrl + T** - Toggle single/double line ticker
 - **Ctrl + P** - Picture-in-Picture mode
 - **+/-** - Adjust ticker speed
+- **L** - Show/hide lower third
+- **Ctrl + L** - Edit lower third
+- **@** - Show/hide social badges
+- **Ctrl + @** - Edit social badges
 - **? or H** - Show help panel
 
-### 8. Picture-in-Picture (PiP) Mode
+### 10. Picture-in-Picture (PiP) Mode
 
 - Watch the station in a floating window
 - Continue browsing while watching
@@ -188,7 +269,7 @@ Available shortcuts:
 - Dedicated PiP button in controls
 - Supported in modern browsers (Chrome, Edge, Safari)
 
-### 9. Ticker Speed Control
+### 11. Ticker Speed Control
 
 - **Press + or -** to adjust ticker scroll speed
 - 5 speed levels: Very Fast, Fast, Normal, Slow, Very Slow
@@ -305,6 +386,8 @@ All features follow these principles:
 - ❌ Limited keyboard controls
 - ❌ No Picture-in-Picture
 - ❌ Fixed ticker speed
+- ❌ No lower thirds
+- ❌ No social media badges
 
 ### After:
 - ✅ Draggable clock with position memory
@@ -316,6 +399,8 @@ All features follow these principles:
 - ✅ Comprehensive keyboard shortcuts
 - ✅ Picture-in-Picture support
 - ✅ Adjustable ticker speed (5 levels)
+- ✅ Professional lower thirds (3 styles)
+- ✅ Animated social media badges
 
 ---
 
@@ -378,8 +463,8 @@ The implementation follows best practices for performance, security, and user ex
 ---
 
 **Implementation Date**: December 30, 2025
-**Total Features Implemented**: 9 major features + multiple enhancements
+**Total Features Implemented**: 11 major features + multiple enhancements
 **Files Modified/Created**: 13 files
-**Lines of Code Added**: ~600+ lines
+**Lines of Code Added**: ~1000+ lines
 
 **Status**: ✅ **ALL FEATURES COMPLETE & READY FOR PRODUCTION**

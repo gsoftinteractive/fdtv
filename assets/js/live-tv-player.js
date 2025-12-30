@@ -114,6 +114,8 @@ class LiveTVPlayer {
         this.initKeyboardShortcutsHelp();
         this.initPictureInPicture();
         this.initTickerSpeedControl();
+        this.initLowerThirds();
+        this.initSocialMediaBadges();
     }
 
     initDoubleLineTicker() {
@@ -1473,6 +1475,22 @@ class LiveTVPlayer {
                     <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">+/-</kbd>
                     <span>Increase/decrease ticker speed</span>
                 </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">L</kbd>
+                    <span>Show/hide lower third</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">Ctrl + L</kbd>
+                    <span>Edit lower third</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">@</kbd>
+                    <span>Show/hide social badges</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">Ctrl + @</kbd>
+                    <span>Edit social badges</span>
+                </div>
                 <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 8px 0;">
                     <kbd style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; text-align: center;">? or H</kbd>
                     <span>Show this help panel</span>
@@ -1631,6 +1649,446 @@ class LiveTVPlayer {
         setTimeout(() => {
             notification.remove();
         }, 1500);
+    }
+
+    // Lower Thirds Feature
+    initLowerThirds() {
+        this.lowerThirds = [];
+        this.currentLowerThird = null;
+        this.lowerThirdVisible = false;
+
+        // Load saved lower thirds from localStorage
+        const saved = localStorage.getItem('fdtv_lower_thirds');
+        if (saved) {
+            try {
+                this.lowerThirds = JSON.parse(saved);
+            } catch (e) {
+                this.lowerThirds = [];
+            }
+        }
+
+        // Add default presets if empty
+        if (this.lowerThirds.length === 0) {
+            this.lowerThirds = [
+                { name: 'John Smith', title: 'Political Analyst', style: 'modern' },
+                { name: 'Jane Doe', title: 'Chief Editor', style: 'bold' },
+                { name: 'Alex Johnson', title: 'Weather Reporter', style: 'news' }
+            ];
+        }
+
+        // Keyboard shortcuts for lower thirds
+        document.addEventListener('keydown', (e) => {
+            // L key - Show/hide current lower third
+            if (e.key === 'l' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                this.toggleLowerThird();
+            }
+            // Ctrl+L - Open lower third editor
+            else if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+                e.preventDefault();
+                this.openLowerThirdEditor();
+            }
+            // Ctrl+1-5 - Quick select preset
+            else if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
+                e.preventDefault();
+                const index = parseInt(e.key) - 1;
+                if (this.lowerThirds[index]) {
+                    this.currentLowerThird = this.lowerThirds[index];
+                    this.showLowerThird();
+                }
+            }
+        });
+    }
+
+    toggleLowerThird() {
+        if (this.lowerThirdVisible) {
+            this.hideLowerThird();
+        } else {
+            if (!this.currentLowerThird && this.lowerThirds.length > 0) {
+                this.currentLowerThird = this.lowerThirds[0];
+            }
+            this.showLowerThird();
+        }
+    }
+
+    showLowerThird() {
+        if (!this.currentLowerThird) return;
+
+        // Remove existing lower third
+        this.hideLowerThird();
+
+        const lt = document.createElement('div');
+        lt.id = 'lowerThirdOverlay';
+        lt.className = 'lower-third-container';
+
+        const style = this.currentLowerThird.style || 'modern';
+
+        if (style === 'modern') {
+            lt.innerHTML = `
+                <div class="lower-third modern-style">
+                    <div class="lt-name">${this.escapeHtml(this.currentLowerThird.name)}</div>
+                    <div class="lt-title">${this.escapeHtml(this.currentLowerThird.title)}</div>
+                </div>
+            `;
+        } else if (style === 'bold') {
+            lt.innerHTML = `
+                <div class="lower-third bold-style">
+                    <div class="lt-accent"></div>
+                    <div class="lt-content">
+                        <div class="lt-name">${this.escapeHtml(this.currentLowerThird.name)}</div>
+                        <div class="lt-title">${this.escapeHtml(this.currentLowerThird.title)}</div>
+                    </div>
+                </div>
+            `;
+        } else if (style === 'news') {
+            lt.innerHTML = `
+                <div class="lower-third news-style">
+                    <div class="lt-box">
+                        <div class="lt-name">${this.escapeHtml(this.currentLowerThird.name)}</div>
+                        <div class="lt-title">${this.escapeHtml(this.currentLowerThird.title)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        this.tvContainer.appendChild(lt);
+        this.lowerThirdVisible = true;
+
+        // Animate in
+        setTimeout(() => {
+            lt.classList.add('visible');
+        }, 50);
+
+        // Show notification
+        this.showNotification(`Lower Third: ${this.currentLowerThird.name}`);
+    }
+
+    hideLowerThird() {
+        const existing = document.getElementById('lowerThirdOverlay');
+        if (existing) {
+            existing.classList.remove('visible');
+            setTimeout(() => existing.remove(), 500);
+        }
+        this.lowerThirdVisible = false;
+    }
+
+    openLowerThirdEditor() {
+        const editor = document.createElement('div');
+        editor.id = 'lowerThirdEditor';
+        editor.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 32px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            z-index: 10000;
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(124, 58, 237, 0.5);
+        `;
+
+        const current = this.currentLowerThird || { name: '', title: '', style: 'modern' };
+
+        editor.innerHTML = `
+            <h2 style="margin: 0 0 24px 0; font-size: 1.5rem;">✏️ Edit Lower Third</h2>
+            <div style="display: grid; gap: 16px;">
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; opacity: 0.8;">Name</label>
+                    <input type="text" id="ltName" value="${this.escapeHtml(current.name)}"
+                        style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+                        border-radius: 8px; color: white; font-size: 1rem;" maxlength="50">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; opacity: 0.8;">Title</label>
+                    <input type="text" id="ltTitle" value="${this.escapeHtml(current.title)}"
+                        style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+                        border-radius: 8px; color: white; font-size: 1rem;" maxlength="100">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; opacity: 0.8;">Style</label>
+                    <select id="ltStyle" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+                        border-radius: 8px; color: white; font-size: 1rem;">
+                        <option value="modern" ${current.style === 'modern' ? 'selected' : ''}>Modern Minimal</option>
+                        <option value="bold" ${current.style === 'bold' ? 'selected' : ''}>Bold Accent</option>
+                        <option value="news" ${current.style === 'news' ? 'selected' : ''}>News Style</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <button id="ltSave" style="flex: 1; padding: 12px; background: #7c3aed; border: none; border-radius: 8px;
+                    color: white; font-weight: 600; cursor: pointer;">Save & Show</button>
+                <button id="ltCancel" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); border: none; border-radius: 8px;
+                    color: white; font-weight: 600; cursor: pointer;">Cancel</button>
+            </div>
+        `;
+
+        document.body.appendChild(editor);
+
+        // Focus first input
+        document.getElementById('ltName').focus();
+
+        // Save button
+        document.getElementById('ltSave').addEventListener('click', () => {
+            const name = document.getElementById('ltName').value.trim();
+            const title = document.getElementById('ltTitle').value.trim();
+            const style = document.getElementById('ltStyle').value;
+
+            if (name && title) {
+                this.currentLowerThird = { name, title, style };
+
+                // Add to presets if not exists
+                const exists = this.lowerThirds.some(lt => lt.name === name && lt.title === title);
+                if (!exists) {
+                    this.lowerThirds.unshift({ name, title, style });
+                    if (this.lowerThirds.length > 10) this.lowerThirds.pop();
+                    localStorage.setItem('fdtv_lower_thirds', JSON.stringify(this.lowerThirds));
+                }
+
+                this.showLowerThird();
+                editor.remove();
+            }
+        });
+
+        // Cancel button
+        document.getElementById('ltCancel').addEventListener('click', () => {
+            editor.remove();
+        });
+
+        // Enter key to save
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('ltSave').click();
+            } else if (e.key === 'Escape') {
+                editor.remove();
+            }
+        });
+    }
+
+    // Social Media Badges Feature
+    initSocialMediaBadges() {
+        this.socialBadges = [];
+        this.socialBadgesVisible = false;
+        this.currentBadgeIndex = 0;
+
+        // Load from station data or localStorage
+        const saved = localStorage.getItem('fdtv_social_badges');
+        if (saved) {
+            try {
+                this.socialBadges = JSON.parse(saved);
+            } catch (e) {
+                this.socialBadges = [];
+            }
+        }
+
+        // Add default badges if empty
+        if (this.socialBadges.length === 0 && this.station) {
+            this.socialBadges = [
+                { platform: 'Twitter', handle: '@YourStation', icon: '𝕏' },
+                { platform: 'Facebook', handle: '/YourStation', icon: '📘' },
+                { platform: 'Instagram', handle: '@YourStation', icon: '📷' },
+                { platform: 'YouTube', handle: 'YourStation', icon: '▶️' }
+            ];
+        }
+
+        // Keyboard shortcut: @ key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '@' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                this.toggleSocialBadges();
+            }
+            // Ctrl+@ to edit
+            else if ((e.ctrlKey || e.metaKey) && e.key === '@') {
+                e.preventDefault();
+                this.openSocialBadgesEditor();
+            }
+        });
+    }
+
+    toggleSocialBadges() {
+        if (this.socialBadgesVisible) {
+            this.hideSocialBadges();
+        } else {
+            this.showSocialBadges();
+        }
+    }
+
+    showSocialBadges() {
+        if (this.socialBadges.length === 0) return;
+
+        // Create container
+        const container = document.createElement('div');
+        container.id = 'socialBadgesContainer';
+        container.className = 'social-badges-container';
+
+        this.tvContainer.appendChild(container);
+        this.socialBadgesVisible = true;
+
+        // Cycle through badges
+        this.cycleSocialBadges();
+    }
+
+    cycleSocialBadges() {
+        if (!this.socialBadgesVisible || this.socialBadges.length === 0) return;
+
+        const container = document.getElementById('socialBadgesContainer');
+        if (!container) return;
+
+        const badge = this.socialBadges[this.currentBadgeIndex];
+
+        // Create badge element
+        const badgeEl = document.createElement('div');
+        badgeEl.className = 'social-badge';
+        badgeEl.innerHTML = `
+            <span class="badge-icon">${badge.icon}</span>
+            <span class="badge-handle">${this.escapeHtml(badge.handle)}</span>
+        `;
+
+        // Clear and add new badge
+        container.innerHTML = '';
+        container.appendChild(badgeEl);
+
+        // Animate in
+        setTimeout(() => badgeEl.classList.add('visible'), 50);
+
+        // Move to next badge after 5 seconds
+        this.currentBadgeIndex = (this.currentBadgeIndex + 1) % this.socialBadges.length;
+
+        if (this.socialBadgeTimeout) clearTimeout(this.socialBadgeTimeout);
+        this.socialBadgeTimeout = setTimeout(() => this.cycleSocialBadges(), 5000);
+    }
+
+    hideSocialBadges() {
+        const container = document.getElementById('socialBadgesContainer');
+        if (container) {
+            container.remove();
+        }
+        if (this.socialBadgeTimeout) {
+            clearTimeout(this.socialBadgeTimeout);
+        }
+        this.socialBadgesVisible = false;
+    }
+
+    openSocialBadgesEditor() {
+        const editor = document.createElement('div');
+        editor.id = 'socialBadgesEditor';
+        editor.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 32px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            z-index: 10000;
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(124, 58, 237, 0.5);
+        `;
+
+        let badgesHtml = this.socialBadges.map((badge, i) => `
+            <div style="display: grid; grid-template-columns: 60px 1fr auto; gap: 12px; align-items: center;
+                padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                <input type="text" class="badge-icon-input" data-index="${i}" value="${badge.icon}"
+                    style="width: 50px; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+                    border-radius: 6px; color: white; text-align: center;" maxlength="2">
+                <input type="text" class="badge-handle-input" data-index="${i}" value="${this.escapeHtml(badge.handle)}"
+                    style="width: 100%; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+                    border-radius: 6px; color: white;" placeholder="@handle" maxlength="50">
+                <button class="delete-badge" data-index="${i}" style="padding: 8px 12px; background: rgba(255,0,0,0.3);
+                    border: none; border-radius: 6px; color: white; cursor: pointer;">✕</button>
+            </div>
+        `).join('');
+
+        editor.innerHTML = `
+            <h2 style="margin: 0 0 24px 0; font-size: 1.5rem;">📱 Social Media Badges</h2>
+            <div style="display: grid; gap: 12px; max-height: 400px; overflow-y: auto; margin-bottom: 16px;">
+                ${badgesHtml}
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button id="sbSave" style="flex: 1; padding: 12px; background: #7c3aed; border: none; border-radius: 8px;
+                    color: white; font-weight: 600; cursor: pointer;">Save & Show</button>
+                <button id="sbCancel" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); border: none; border-radius: 8px;
+                    color: white; font-weight: 600; cursor: pointer;">Cancel</button>
+            </div>
+        `;
+
+        document.body.appendChild(editor);
+
+        // Delete badge handlers
+        editor.querySelectorAll('.delete-badge').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                this.socialBadges.splice(index, 1);
+                editor.remove();
+                this.openSocialBadgesEditor(); // Refresh
+            });
+        });
+
+        // Save button
+        document.getElementById('sbSave').addEventListener('click', () => {
+            const newBadges = [];
+            editor.querySelectorAll('.badge-icon-input').forEach((input, i) => {
+                const icon = input.value.trim();
+                const handle = editor.querySelectorAll('.badge-handle-input')[i].value.trim();
+                if (icon && handle) {
+                    newBadges.push({ icon, handle, platform: 'Custom' });
+                }
+            });
+
+            this.socialBadges = newBadges;
+            localStorage.setItem('fdtv_social_badges', JSON.stringify(this.socialBadges));
+
+            this.hideSocialBadges();
+            this.showSocialBadges();
+            editor.remove();
+
+            this.showNotification('Social badges updated!');
+        });
+
+        // Cancel button
+        document.getElementById('sbCancel').addEventListener('click', () => {
+            editor.remove();
+        });
+    }
+
+    // Helper method for escaping HTML
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Generic notification helper
+    showNotification(message) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(124, 58, 237, 0.5);
+            animation: slideInRight 0.3s ease-out;
+        `;
+        notification.textContent = message;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease-out';
+            setTimeout(() => notification.remove(), 300);
+        }, 2000);
     }
 
     // Cleanup method

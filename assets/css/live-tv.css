@@ -229,25 +229,31 @@ body {
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.7);
-    padding: 8px 20px;
-    border-radius: 6px;
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.9) 0%, rgba(0, 0, 0, 0.9) 100%);
+    padding: 10px 24px;
+    border-radius: 8px;
     font-family: 'Roboto Mono', monospace;
-    font-size: 1.25rem;
-    font-weight: 500;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #ffffff;
     z-index: 10;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(15px);
     cursor: grab;
     user-select: none;
-    transition: box-shadow 0.2s;
+    transition: all 0.3s ease;
+    border: 2px solid rgba(124, 58, 237, 0.5);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
 }
 
 .time-display:hover {
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 6px 20px rgba(124, 58, 237, 0.6);
+    border-color: rgba(124, 58, 237, 0.8);
+    transform: translateX(-50%) scale(1.05);
 }
 
 .time-display:active {
     cursor: grabbing;
+    transform: translateX(-50%) scale(0.98);
 }
 
 /* Program Info Bar */
@@ -800,5 +806,163 @@ body {
     100% {
         opacity: 0;
         transform: translate(-50%, -50%) scale(0.8);
+    }
+}
+
+/* Lower Thirds Styles */
+.lower-third-container {
+    position: absolute;
+    bottom: 120px;
+    left: 40px;
+    z-index: 15;
+    opacity: 0;
+    transform: translateX(-100%);
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+.lower-third-container.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Modern Style Lower Third */
+.lower-third.modern-style {
+    background: linear-gradient(90deg, rgba(124, 58, 237, 0.95) 0%, rgba(124, 58, 237, 0.8) 100%);
+    padding: 16px 24px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    border-left: 4px solid #ffffff;
+    max-width: 400px;
+}
+
+.lower-third.modern-style .lt-name {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.lower-third.modern-style .lt-title {
+    font-size: 1rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Bold Accent Style */
+.lower-third.bold-style {
+    display: flex;
+    align-items: stretch;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    max-width: 450px;
+}
+
+.lower-third.bold-style .lt-accent {
+    width: 8px;
+    background: linear-gradient(180deg, #7c3aed 0%, #db2777 100%);
+}
+
+.lower-third.bold-style .lt-content {
+    padding: 16px 24px;
+}
+
+.lower-third.bold-style .lt-name {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 4px;
+}
+
+.lower-third.bold-style .lt-title {
+    font-size: 1rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* News Style Lower Third */
+.lower-third.news-style .lt-box {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #ffffff;
+    padding: 14px 22px;
+    max-width: 420px;
+}
+
+.lower-third.news-style .lt-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.lower-third.news-style .lt-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Social Media Badges */
+.social-badges-container {
+    position: absolute;
+    bottom: 80px;
+    right: 40px;
+    z-index: 15;
+}
+
+.social-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    padding: 12px 20px;
+    border-radius: 50px;
+    border: 2px solid rgba(124, 58, 237, 0.5);
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+.social-badge.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.social-badge .badge-icon {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.social-badge .badge-handle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+}
+
+/* Slide animations */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
     }
 }
