@@ -66,21 +66,25 @@ class LiveTVPlayer {
         this.tickerTrack = document.getElementById('tickerTrack');
         this.tickerContent = document.querySelector('.ticker-content');
 
-        // Ticker mode (single or double line)
-        this.isDoubleLineTicker = localStorage.getItem('fdtv_ticker_double_line') === 'true';
+        // Ticker mode (loaded from station database settings)
+        this.isDoubleLineTicker = (this.station.ticker_mode === 'double');
 
         // Ticker color presets
         this.tickerColorPresets = [
-            { name: 'Red', bg: '#dc2626', text: '#ffffff', label: 'BREAKING' },
-            { name: 'Purple', bg: '#7c3aed', text: '#ffffff', label: 'EVENTS' },
-            { name: 'Green', bg: '#059669', text: '#ffffff', label: 'SCHEDULE' },
-            { name: 'Blue', bg: '#2563eb', text: '#ffffff', label: 'NEWS' },
-            { name: 'Orange', bg: '#ea580c', text: '#ffffff', label: 'ALERT' },
-            { name: 'Pink', bg: '#db2777', text: '#ffffff', label: 'SPECIAL' },
-            { name: 'Teal', bg: '#0d9488', text: '#ffffff', label: 'UPDATE' },
-            { name: 'Indigo', bg: '#4f46e5', text: '#ffffff', label: 'INFO' }
+            { name: 'Red', value: 'red', bg: '#dc2626', text: '#ffffff', label: 'BREAKING' },
+            { name: 'Purple', value: 'purple', bg: '#7c3aed', text: '#ffffff', label: 'EVENTS' },
+            { name: 'Green', value: 'green', bg: '#059669', text: '#ffffff', label: 'SCHEDULE' },
+            { name: 'Blue', value: 'blue', bg: '#2563eb', text: '#ffffff', label: 'NEWS' },
+            { name: 'Orange', value: 'orange', bg: '#ea580c', text: '#ffffff', label: 'ALERT' },
+            { name: 'Pink', value: 'pink', bg: '#db2777', text: '#ffffff', label: 'SPECIAL' },
+            { name: 'Teal', value: 'teal', bg: '#0d9488', text: '#ffffff', label: 'UPDATE' },
+            { name: 'Indigo', value: 'indigo', bg: '#4f46e5', text: '#ffffff', label: 'INFO' }
         ];
-        this.currentColorIndex = 0;
+
+        // Set current color from station database settings
+        const stationColor = this.station.ticker_color || 'red';
+        this.currentColorIndex = this.tickerColorPresets.findIndex(p => p.value === stationColor);
+        if (this.currentColorIndex === -1) this.currentColorIndex = 0;
 
         // Check mode and content availability
         if (this.mode === 'live' && this.liveFeed) {
@@ -291,51 +295,18 @@ class LiveTVPlayer {
     initTickerColorChange() {
         if (!this.tickerBar) return;
 
-        // Load saved color index from localStorage
-        const savedIndex = localStorage.getItem('fdtv_ticker_color_index');
-        if (savedIndex !== null) {
-            this.currentColorIndex = parseInt(savedIndex);
-            this.applyTickerColor(this.currentColorIndex);
+        // Apply color and label from station database settings
+        this.applyTickerColor(this.currentColorIndex);
+
+        // Apply custom label from station settings
+        if (this.tickerLabel && this.station.ticker_label) {
+            this.tickerLabel.textContent = this.station.ticker_label;
         }
-
-        // Add click event to ticker bar
-        this.tickerBar.addEventListener('click', () => {
-            this.currentColorIndex = (this.currentColorIndex + 1) % this.tickerColorPresets.length;
-            this.applyTickerColor(this.currentColorIndex);
-
-            // Save to localStorage
-            localStorage.setItem('fdtv_ticker_color_index', this.currentColorIndex);
-
-            // Show brief notification
-            this.showTickerColorNotification();
-        });
-
-        // Make ticker clickable with pointer cursor
-        this.tickerBar.style.cursor = 'pointer';
-        this.tickerBar.title = 'Click to change ticker color';
-
-        // Make ticker label editable on double-click
-        this.initTickerLabelEdit();
     }
 
     initTickerLabelEdit() {
-        if (!this.tickerLabel) return;
-
-        // Load saved custom label from localStorage
-        const savedLabel = localStorage.getItem('fdtv_ticker_label');
-        if (savedLabel) {
-            this.tickerLabel.textContent = savedLabel;
-        }
-
-        // Add double-click event to edit label
-        this.tickerLabel.addEventListener('dblclick', (e) => {
-            e.stopPropagation(); // Prevent ticker color change
-            this.makeTickerLabelEditable();
-        });
-
-        // Add styling hint
-        this.tickerLabel.style.cursor = 'text';
-        this.tickerLabel.title = 'Double-click to edit label';
+        // This method is kept for compatibility but no longer allows editing
+        // All ticker settings are now controlled from the admin dashboard
     }
 
     makeTickerLabelEditable() {
@@ -1196,77 +1167,18 @@ class LiveTVPlayer {
     }
 
     makeTimeDisplayDraggable() {
-        let isDragging = false;
-        let currentX;
-        let currentY;
-        let initialX;
-        let initialY;
-        let xOffset = 0;
-        let yOffset = 0;
+        // Load clock position from station database settings
+        const xOffset = parseInt(this.station.clock_position_x) || 0;
+        const yOffset = parseInt(this.station.clock_position_y) || 0;
 
-        // Load saved position from localStorage
-        const savedPosition = localStorage.getItem('fdtv_time_position');
-        if (savedPosition) {
-            const pos = JSON.parse(savedPosition);
-            xOffset = pos.x;
-            yOffset = pos.y;
-            this.setTimeDisplayPosition(pos.x, pos.y);
+        // Apply station-configured position
+        this.setTimeDisplayPosition(xOffset, yOffset);
+
+        // Clock is no longer draggable - position controlled by admin dashboard
+        // Remove grab cursor
+        if (this.timeDisplay) {
+            this.timeDisplay.style.cursor = 'default';
         }
-
-        this.timeDisplay.addEventListener('mousedown', dragStart);
-        this.timeDisplay.addEventListener('touchstart', dragStart);
-
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('touchmove', drag);
-
-        document.addEventListener('mouseup', dragEnd);
-        document.addEventListener('touchend', dragEnd);
-
-        const dragStart = (e) => {
-            if (e.type === 'touchstart') {
-                initialX = e.touches[0].clientX - xOffset;
-                initialY = e.touches[0].clientY - yOffset;
-            } else {
-                initialX = e.clientX - xOffset;
-                initialY = e.clientY - yOffset;
-            }
-
-            if (e.target === this.timeDisplay || e.target.closest('#timeDisplay')) {
-                isDragging = true;
-                this.timeDisplay.style.cursor = 'grabbing';
-            }
-        };
-
-        const drag = (e) => {
-            if (isDragging) {
-                e.preventDefault();
-
-                if (e.type === 'touchmove') {
-                    currentX = e.touches[0].clientX - initialX;
-                    currentY = e.touches[0].clientY - initialY;
-                } else {
-                    currentX = e.clientX - initialX;
-                    currentY = e.clientY - initialY;
-                }
-
-                xOffset = currentX;
-                yOffset = currentY;
-
-                this.setTimeDisplayPosition(currentX, currentY);
-            }
-        };
-
-        const dragEnd = () => {
-            if (isDragging) {
-                initialX = currentX;
-                initialY = currentY;
-                isDragging = false;
-                this.timeDisplay.style.cursor = 'grab';
-
-                // Save position to localStorage
-                localStorage.setItem('fdtv_time_position', JSON.stringify({ x: xOffset, y: yOffset }));
-            }
-        };
     }
 
     setTimeDisplayPosition(x, y) {
@@ -1578,19 +1490,11 @@ class LiveTVPlayer {
     initTickerSpeedControl() {
         if (!this.tickerTrack) return;
 
-        this.tickerSpeed = parseFloat(localStorage.getItem('fdtv_ticker_speed')) || 60;
+        // Load ticker speed from station database settings
+        this.tickerSpeed = parseInt(this.station.ticker_speed) || 60;
         this.updateTickerSpeed();
 
-        // Add keyboard shortcuts (+/- to adjust speed)
-        document.addEventListener('keydown', (e) => {
-            if (e.key === '+' || e.key === '=') {
-                e.preventDefault();
-                this.adjustTickerSpeed(-10); // Faster (lower duration)
-            } else if (e.key === '-' || e.key === '_') {
-                e.preventDefault();
-                this.adjustTickerSpeed(10); // Slower (higher duration)
-            }
-        });
+        // Speed is no longer adjustable by viewers - controlled by admin dashboard
     }
 
     adjustTickerSpeed(change) {
@@ -1653,26 +1557,22 @@ class LiveTVPlayer {
 
     // Lower Thirds Feature
     initLowerThirds() {
-        this.lowerThirds = [];
         this.currentLowerThird = null;
         this.lowerThirdVisible = false;
 
-        // Load saved lower thirds from localStorage
-        const saved = localStorage.getItem('fdtv_lower_thirds');
-        if (saved) {
-            try {
-                this.lowerThirds = JSON.parse(saved);
-            } catch (e) {
-                this.lowerThirds = [];
-            }
+        // Load lower thirds presets from station database settings
+        try {
+            this.lowerThirds = JSON.parse(this.station.lower_thirds_presets || '[]');
+        } catch (e) {
+            this.lowerThirds = [];
         }
 
         // Add default presets if empty
         if (this.lowerThirds.length === 0) {
             this.lowerThirds = [
-                { name: 'John Smith', title: 'Political Analyst', style: 'modern' },
-                { name: 'Jane Doe', title: 'Chief Editor', style: 'bold' },
-                { name: 'Alex Johnson', title: 'Weather Reporter', style: 'news' }
+                { name: 'John Smith', title: 'News Anchor', style: 'modern' },
+                { name: 'Jane Doe', title: 'Weather Reporter', style: 'bold' },
+                { name: 'Alex Johnson', title: 'Sports Analyst', style: 'news' }
             ];
         }
 
@@ -1870,27 +1770,24 @@ class LiveTVPlayer {
 
     // Social Media Badges Feature
     initSocialMediaBadges() {
-        this.socialBadges = [];
         this.socialBadgesVisible = false;
         this.currentBadgeIndex = 0;
 
-        // Load from station data or localStorage
-        const saved = localStorage.getItem('fdtv_social_badges');
-        if (saved) {
-            try {
-                this.socialBadges = JSON.parse(saved);
-            } catch (e) {
-                this.socialBadges = [];
-            }
+        // Load social badges from station database settings
+        try {
+            this.socialBadges = JSON.parse(this.station.social_badges || '[]');
+        } catch (e) {
+            this.socialBadges = [];
         }
 
         // Add default badges if empty
-        if (this.socialBadges.length === 0 && this.station) {
+        if (this.socialBadges.length === 0) {
+            const stationName = this.station.name ? this.station.name.replace(/\s+/g, '') : 'YourStation';
             this.socialBadges = [
-                { platform: 'Twitter', handle: '@YourStation', icon: '𝕏' },
-                { platform: 'Facebook', handle: '/YourStation', icon: '📘' },
-                { platform: 'Instagram', handle: '@YourStation', icon: '📷' },
-                { platform: 'YouTube', handle: 'YourStation', icon: '▶️' }
+                { platform: 'Twitter', handle: `@${stationName}`, icon: '𝕏' },
+                { platform: 'Facebook', handle: `/${stationName}`, icon: '📘' },
+                { platform: 'Instagram', handle: `@${stationName}`, icon: '📷' },
+                { platform: 'YouTube', handle: stationName, icon: '▶️' }
             ];
         }
 
