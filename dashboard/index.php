@@ -167,13 +167,40 @@ $flash = get_flash();
                 $has_radio = in_array($station_type, ['radio', 'both']);
                 ?>
 
-                <?php if ($has_tv): ?>
-                <p><strong>TV Station URL:</strong> <a href="<?php echo SITE_URL; ?>/station/view.php?name=<?php echo $station['slug']; ?>" target="_blank"><?php echo SITE_URL; ?>/station/<?php echo $station['slug']; ?></a></p>
-                <?php endif; ?>
+                <!-- Station Links - User Friendly with Copy Buttons -->
+                <div style="margin-top: 1.5rem; margin-bottom: 1.5rem;">
+                    <?php if ($has_tv): ?>
+                    <div style="background: #f3f4f6; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.25rem;">📺 TV Station Link</div>
+                                <a href="<?php echo SITE_URL; ?>/station/view.php?name=<?php echo $station['slug']; ?>" target="_blank" style="color: #6366f1; word-break: break-all; font-size: 0.9rem;">
+                                    <?php echo SITE_URL; ?>/station/<?php echo $station['slug']; ?>
+                                </a>
+                            </div>
+                            <button onclick="copyToClipboard('<?php echo SITE_URL; ?>/station/view.php?name=<?php echo $station['slug']; ?>', 'TV')" class="btn btn-small" style="margin-left: 1rem; white-space: nowrap;">
+                                Copy Link
+                            </button>
+                        </div>
+                    </div>
+                    <?php endif; ?>
 
-                <?php if ($has_radio): ?>
-                <p><strong>Radio Station URL:</strong> <a href="<?php echo SITE_URL; ?>/radio/index.php?name=<?php echo $station['slug']; ?>" target="_blank"><?php echo SITE_URL; ?>/radio/<?php echo $station['slug']; ?></a></p>
-                <?php endif; ?>
+                    <?php if ($has_radio): ?>
+                    <div style="background: #f3f4f6; padding: 1rem; border-radius: 6px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.25rem;">📻 Radio Station Link</div>
+                                <a href="<?php echo SITE_URL; ?>/radio/index.php?name=<?php echo $station['slug']; ?>" target="_blank" style="color: #8b5cf6; word-break: break-all; font-size: 0.9rem;">
+                                    <?php echo SITE_URL; ?>/radio/<?php echo $station['slug']; ?>
+                                </a>
+                            </div>
+                            <button onclick="copyToClipboard('<?php echo SITE_URL; ?>/radio/index.php?name=<?php echo $station['slug']; ?>', 'Radio')" class="btn btn-small" style="margin-left: 1rem; white-space: nowrap;">
+                                Copy Link
+                            </button>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
 
                 <p><strong>Status:</strong> <span class="badge badge-<?php echo $station['status'] == 'active' ? 'success' : 'danger'; ?>"><?php echo ucfirst($station['status']); ?></span></p>
                 
@@ -197,5 +224,29 @@ $flash = get_flash();
             </div>
         </div>
     </div>
+
+    <script>
+        function copyToClipboard(text, type) {
+            navigator.clipboard.writeText(text).then(function() {
+                alert(type + ' station link copied to clipboard!\n\nShare this link with your audience.');
+            }).catch(function(err) {
+                // Fallback for older browsers
+                var textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.top = "-1000px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert(type + ' station link copied to clipboard!\n\nShare this link with your audience.');
+                } catch (err) {
+                    alert('Failed to copy. Please copy manually:\n\n' + text);
+                }
+                document.body.removeChild(textArea);
+            });
+        }
+    </script>
 </body>
 </html>
