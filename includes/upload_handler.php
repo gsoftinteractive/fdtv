@@ -28,6 +28,16 @@ if (!$station) {
 
 $station_id = $station['id'];
 
+// Get user for coin balance
+$stmt = $conn->prepare("SELECT users.* FROM users JOIN stations ON users.id = stations.user_id WHERE stations.id = ?");
+$stmt->execute([$station_id]);
+$user = $stmt->fetch();
+
+if (!$user) {
+    echo json_encode(['success' => false, 'error' => 'User not found']);
+    exit;
+}
+
 // Get current video count
 $stmt = $conn->prepare("SELECT COUNT(*) as total FROM videos WHERE station_id = ?");
 $stmt->execute([$station_id]);
@@ -280,21 +290,75 @@ function handleFinalize($station_id, $conn) {
         $content_type = isset($metadata['content_type']) ? $metadata['content_type'] : 'regular';
         $priority = isset($metadata['priority']) ? $metadata['priority'] : 3;
 
+        // Get current coin pricing
+        $stmt = $conn->prepare("SELECT cost_per_unit FROM coin_pricing WHERE action_type = 'video_upload' LIMIT 1");
+        $stmt->execute();
+        $pricing = $stmt->fetch();
+        $video_upload_cost = $pricing ? (int)$pricing['cost_per_unit'] : 10;
+
+        // Get current user coin balance
+        $stmt = $conn->prepare("SELECT coins FROM users WHERE id = (SELECT user_id FROM stations WHERE id = ?)");
+        $stmt->execute([$station_id]);
+        $user_data = $stmt->fetch();
+        $current_balance = $user_data ? (int)$user_data['coins'] : 0;
+
+        // Check if user has enough coins
+        if ($current_balance < $video_upload_cost) {
+            unlink($final_path);
+            echo json_encode([
+                'success' => false,
+                'error' => "Insufficient coins. You need {$video_upload_cost} coins to upload a video. Current balance: {$current_balance} coins."
+            ]);
+            return;
+        }
+
+        // Start transaction
+        $conn->beginTransaction();
+
+        // Insert video
         $stmt = $conn->prepare("INSERT INTO videos (station_id, title, filename, file_size, status, content_type, priority) VALUES (?, ?, ?, ?, 'ready', ?, ?)");
         $stmt->execute([$station_id, $metadata['title'], $safe_filename, $final_size, $content_type, $priority]);
         $video_id = $conn->lastInsertId();
-        
+
+        // Deduct coins from user
+        $balance_before = $current_balance;
+        $balance_after = $balance_before - $video_upload_cost;
+
+        $stmt = $conn->prepare("UPDATE users SET coins = ?, coins_updated_at = NOW() WHERE id = (SELECT user_id FROM stations WHERE id = ?)");
+        $stmt->execute([$balance_after, $station_id]);
+
+        // Record transaction
+        $stmt = $conn->prepare("INSERT INTO coin_transactions
+            (user_id, amount, transaction_type, description, balance_before, balance_after, reference)
+            VALUES ((SELECT user_id FROM stations WHERE id = ?), ?, 'video_upload', ?, ?, ?, ?)");
+        $stmt->execute([
+            $station_id,
+            $video_upload_cost,
+            "Video upload: {$metadata['title']} (Video #{$video_id})",
+            $balance_before,
+            $balance_after,
+            'VID_' . $video_id
+        ]);
+
+        // Commit transaction
+        $conn->commit();
+
         // Clean up temp directory
         cleanupTempDir($temp_dir);
-        
+
         echo json_encode([
             'success' => true,
             'video_id' => $video_id,
             'filename' => $safe_filename,
-            'message' => 'Video uploaded successfully!'
+            'coins_deducted' => $video_upload_cost,
+            'new_balance' => $balance_after,
+            'message' => 'Video uploaded successfully! ' . $video_upload_cost . ' coins deducted.'
         ]);
-        
+
     } catch (Exception $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
         unlink($final_path);
         echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
     }

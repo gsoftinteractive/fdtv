@@ -52,51 +52,48 @@ if (isset($_POST['approve'])) {
                 $stmt = $conn->prepare("UPDATE payments SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?");
                 $stmt->execute([$admin_id, $payment_id]);
 
-                // Handle coin purchase payment
-                $payment_type = $payment['payment_type'] ?? 'coins';
+                // All payments are now treated as coin purchases
+                // Determine coin package based on amount
+                $coin_packages = [
+                    5000 => 500,
+                    10000 => 1100,   // 1000 + 100 bonus
+                    25000 => 2800,   // 2500 + 300 bonus
+                    50000 => 5750,   // 5000 + 750 bonus
+                    100000 => 12000  // 10000 + 2000 bonus
+                ];
 
-                if ($payment_type === 'coins') {
-                    // Parse coins from description (format: "Purchase of X coins")
-                    // Or use amount to determine coin package
-                    $coins_to_credit = 0;
+                $coins_to_credit = $coin_packages[$payment['amount']] ?? 0;
 
-                    // Determine coin package based on amount
-                    $coin_packages = [
-                        5000 => 500,
-                        10000 => 1100,   // 1000 + 100 bonus
-                        25000 => 2800,   // 2500 + 300 bonus
-                        50000 => 5750,   // 5000 + 750 bonus
-                        100000 => 12000  // 10000 + 2000 bonus
-                    ];
+                // If amount doesn't match a package, calculate proportionally (10 coins per ₦100)
+                if ($coins_to_credit === 0 && $payment['amount'] > 0) {
+                    $coins_to_credit = floor($payment['amount'] / 10);
+                }
 
-                    $coins_to_credit = $coin_packages[$payment['amount']] ?? 0;
+                if ($coins_to_credit > 0) {
+                    // Get current balance
+                    $stmt = $conn->prepare("SELECT coins FROM users WHERE id = ?");
+                    $stmt->execute([$payment['user_id']]);
+                    $user_data = $stmt->fetch();
+                    $balance_before = $user_data['coins'] ?? 0;
+                    $balance_after = $balance_before + $coins_to_credit;
 
-                    if ($coins_to_credit > 0) {
-                        // Get current balance
-                        $stmt = $conn->prepare("SELECT coins FROM users WHERE id = ?");
-                        $stmt->execute([$payment['user_id']]);
-                        $user_data = $stmt->fetch();
-                        $balance_before = $user_data['coins'] ?? 0;
-                        $balance_after = $balance_before + $coins_to_credit;
+                    // Credit coins to user
+                    $stmt = $conn->prepare("UPDATE users SET coins = ?, coins_updated_at = NOW() WHERE id = ?");
+                    $stmt->execute([$balance_after, $payment['user_id']]);
 
-                        // Credit coins to user
-                        $stmt = $conn->prepare("UPDATE users SET coins = ?, coins_updated_at = NOW() WHERE id = ?");
-                        $stmt->execute([$balance_after, $payment['user_id']]);
-
-                        // Record transaction
-                        $stmt = $conn->prepare("INSERT INTO coin_transactions
-                            (user_id, amount, transaction_type, description, balance_before, balance_after, created_by, reference)
-                            VALUES (?, ?, 'purchase', ?, ?, ?, ?, ?)");
-                        $stmt->execute([
-                            $payment['user_id'],
-                            $coins_to_credit,
-                            "Purchase of {$coins_to_credit} coins (Payment #{$payment_id})",
-                            $balance_before,
-                            $balance_after,
-                            $admin_id,
-                            $payment['reference']
-                        ]);
-                    }
+                    // Record transaction
+                    $stmt = $conn->prepare("INSERT INTO coin_transactions
+                        (user_id, amount, transaction_type, description, balance_before, balance_after, created_by, reference)
+                        VALUES (?, ?, 'purchase', ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $payment['user_id'],
+                        $coins_to_credit,
+                        "Purchase of {$coins_to_credit} coins (Payment #{$payment_id})",
+                        $balance_before,
+                        $balance_after,
+                        $admin_id,
+                        $payment['reference']
+                    ]);
                 }
 
                 $conn->commit();
@@ -264,7 +261,10 @@ $flash = get_flash();
     <div id="approveModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
         <div style="background:white; padding:2rem; border-radius:8px; max-width:400px; width:90%;">
             <h3>Approve Payment?</h3>
-            <p>This will activate the client's station for 30 days.</p>
+            <p>This will credit coins to the user's account based on the payment amount.</p>
+            <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem;">
+                The user can then create their station or upload videos with the credited coins.
+            </p>
             <form method="POST" action="">
                 <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
                 <input type="hidden" name="payment_id" id="approve_payment_id">

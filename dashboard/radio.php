@@ -157,32 +157,82 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && verify_csrf_token($_POST['csrf_token
         if (empty($name) || empty($stream_url)) {
             $errors[] = "Stream name and URL are required.";
         } else {
-            // If setting as primary, unset others
-            if ($is_primary) {
-                $stmt = $conn->prepare("UPDATE radio_streams SET is_primary = 0 WHERE station_id = ?");
+            // Get user coin balance for new streams (not updates)
+            $stream_setup_cost = 0;
+            if ($stream_id == 0) {
+                // Only charge for new streams, not updates
+                $stmt = $conn->prepare("SELECT users.* FROM users JOIN stations ON users.id = stations.user_id WHERE stations.id = ?");
                 $stmt->execute([$station_id]);
+                $user_data = $stmt->fetch();
+
+                $stream_setup_cost = 20; // 20 coins for setting up a stream
+                $current_balance = $user_data ? (int)$user_data['coins'] : 0;
+
+                if ($current_balance < $stream_setup_cost) {
+                    $errors[] = "Insufficient coins. You need {$stream_setup_cost} coins to set up a live stream. Current balance: {$current_balance} coins.";
+                }
             }
 
-            if ($stream_id > 0) {
-                $stmt = $conn->prepare("UPDATE radio_streams SET
-                    name = ?, stream_url = ?, stream_type = ?, bitrate = ?,
-                    format = ?, is_primary = ?, fallback_url = ?, metadata_url = ?
-                    WHERE id = ? AND station_id = ?");
-                $stmt->execute([
-                    $name, $stream_url, $stream_type, $bitrate,
-                    $format, $is_primary, $fallback_url, $metadata_url,
-                    $stream_id, $station_id
-                ]);
-            } else {
-                $stmt = $conn->prepare("INSERT INTO radio_streams
-                    (station_id, name, stream_url, stream_type, bitrate, format, is_primary, fallback_url, metadata_url)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    $station_id, $name, $stream_url, $stream_type, $bitrate,
-                    $format, $is_primary, $fallback_url, $metadata_url
-                ]);
+            if (empty($errors)) {
+                try {
+                    $conn->beginTransaction();
+
+                    // If setting as primary, unset others
+                    if ($is_primary) {
+                        $stmt = $conn->prepare("UPDATE radio_streams SET is_primary = 0 WHERE station_id = ?");
+                        $stmt->execute([$station_id]);
+                    }
+
+                    if ($stream_id > 0) {
+                        $stmt = $conn->prepare("UPDATE radio_streams SET
+                            name = ?, stream_url = ?, stream_type = ?, bitrate = ?,
+                            format = ?, is_primary = ?, fallback_url = ?, metadata_url = ?
+                            WHERE id = ? AND station_id = ?");
+                        $stmt->execute([
+                            $name, $stream_url, $stream_type, $bitrate,
+                            $format, $is_primary, $fallback_url, $metadata_url,
+                            $stream_id, $station_id
+                        ]);
+                        $success = "Stream updated successfully!";
+                    } else {
+                        $stmt = $conn->prepare("INSERT INTO radio_streams
+                            (station_id, name, stream_url, stream_type, bitrate, format, is_primary, fallback_url, metadata_url)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $station_id, $name, $stream_url, $stream_type, $bitrate,
+                            $format, $is_primary, $fallback_url, $metadata_url
+                        ]);
+                        $new_stream_id = $conn->lastInsertId();
+
+                        // Deduct coins for new stream
+                        $balance_before = $current_balance;
+                        $balance_after = $balance_before - $stream_setup_cost;
+
+                        $stmt = $conn->prepare("UPDATE users SET coins = ?, coins_updated_at = NOW() WHERE id = ?");
+                        $stmt->execute([$balance_after, $user_id]);
+
+                        // Record transaction
+                        $stmt = $conn->prepare("INSERT INTO coin_transactions
+                            (user_id, amount, transaction_type, description, balance_before, balance_after, reference)
+                            VALUES (?, ?, 'stream_setup', ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $user_id,
+                            $stream_setup_cost,
+                            "Live stream setup: {$name} (Stream #{$new_stream_id})",
+                            $balance_before,
+                            $balance_after,
+                            'STREAM_' . $new_stream_id
+                        ]);
+
+                        $success = "Stream created successfully! {$stream_setup_cost} coins deducted. New balance: {$balance_after} coins.";
+                    }
+
+                    $conn->commit();
+                } catch (Exception $e) {
+                    $conn->rollBack();
+                    $errors[] = "Failed to save stream: " . $e->getMessage();
+                }
             }
-            $success = "Stream saved successfully!";
         }
     }
 
@@ -271,7 +321,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && verify_csrf_token($_POST['csrf_token
 
     // Upload audio track
     if ($action == 'upload_audio') {
-        if (isset($_FILES['audio_file']) && $_FILES['audio_file']['error'] == 0) {
+        // Get user coin balance and pricing
+        $stmt = $conn->prepare("SELECT users.* FROM users JOIN stations ON users.id = stations.user_id WHERE stations.id = ?");
+        $stmt->execute([$station_id]);
+        $user_data = $stmt->fetch();
+
+        $stmt = $conn->prepare("SELECT cost_per_unit FROM coin_pricing WHERE action_type = 'video_upload' LIMIT 1");
+        $stmt->execute();
+        $pricing = $stmt->fetch();
+        $audio_upload_cost = $pricing ? (int)$pricing['cost_per_unit'] : 10; // Same cost as video upload
+
+        // Check coin balance
+        $current_balance = $user_data ? (int)$user_data['coins'] : 0;
+
+        if ($current_balance < $audio_upload_cost) {
+            $errors[] = "Insufficient coins. You need {$audio_upload_cost} coins to upload audio. Current balance: {$current_balance} coins.";
+        } elseif (isset($_FILES['audio_file']) && $_FILES['audio_file']['error'] == 0) {
             $allowed = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a', 'audio/x-m4a'];
             $file_type = $_FILES['audio_file']['type'];
 
@@ -292,20 +357,55 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && verify_csrf_token($_POST['csrf_token
                     $genre = trim($_POST['track_genre'] ?? '');
                     $file_size = $_FILES['audio_file']['size'];
 
-                    // Get max sort order
-                    $stmt = $conn->prepare("SELECT MAX(sort_order) as max_order FROM radio_audio_tracks WHERE station_id = ?");
-                    $stmt->execute([$station_id]);
-                    $max_order = $stmt->fetch()['max_order'] ?? 0;
+                    try {
+                        $conn->beginTransaction();
 
-                    $stmt = $conn->prepare("INSERT INTO radio_audio_tracks
-                        (station_id, title, artist, album, genre, filename, original_filename, file_size, file_type, sort_order)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([
-                        $station_id, $title, $artist, $album, $genre,
-                        $filename, $original_name, $file_size, $file_type, $max_order + 1
-                    ]);
+                        // Get max sort order
+                        $stmt = $conn->prepare("SELECT MAX(sort_order) as max_order FROM radio_audio_tracks WHERE station_id = ?");
+                        $stmt->execute([$station_id]);
+                        $max_order = $stmt->fetch()['max_order'] ?? 0;
 
-                    $success = "Audio track uploaded successfully!";
+                        // Insert audio track
+                        $stmt = $conn->prepare("INSERT INTO radio_audio_tracks
+                            (station_id, title, artist, album, genre, filename, original_filename, file_size, file_type, sort_order)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $station_id, $title, $artist, $album, $genre,
+                            $filename, $original_name, $file_size, $file_type, $max_order + 1
+                        ]);
+                        $track_id = $conn->lastInsertId();
+
+                        // Deduct coins from user
+                        $balance_before = $current_balance;
+                        $balance_after = $balance_before - $audio_upload_cost;
+
+                        $stmt = $conn->prepare("UPDATE users SET coins = ?, coins_updated_at = NOW() WHERE id = ?");
+                        $stmt->execute([$balance_after, $user_id]);
+
+                        // Record transaction
+                        $stmt = $conn->prepare("INSERT INTO coin_transactions
+                            (user_id, amount, transaction_type, description, balance_before, balance_after, reference)
+                            VALUES (?, ?, 'audio_upload', ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $user_id,
+                            $audio_upload_cost,
+                            "Radio audio upload: {$title} (Track #{$track_id})",
+                            $balance_before,
+                            $balance_after,
+                            'AUDIO_' . $track_id
+                        ]);
+
+                        $conn->commit();
+
+                        $success = "Audio track uploaded successfully! {$audio_upload_cost} coins deducted. New balance: {$balance_after} coins.";
+                    } catch (Exception $e) {
+                        $conn->rollBack();
+                        // Delete uploaded file if database operation fails
+                        if (file_exists($upload_dir . $filename)) {
+                            unlink($upload_dir . $filename);
+                        }
+                        $errors[] = "Failed to process upload: " . $e->getMessage();
+                    }
                 } else {
                     $errors[] = "Failed to upload audio file.";
                 }
