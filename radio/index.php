@@ -13,11 +13,17 @@ if (empty($station_slug)) {
     die("Radio station not found.");
 }
 
-// Get station with radio enabled
+// Get station with radio access (check station_type or radio_enabled for backward compatibility)
 $stmt = $conn->prepare("SELECT s.*, u.company_name, u.status as user_status
                         FROM stations s
                         JOIN users u ON s.user_id = u.id
-                        WHERE s.slug = ? AND s.radio_enabled = 1");
+                        WHERE s.slug = ?
+                        AND (
+                            s.radio_enabled = 1
+                            OR s.station_type = 'radio'
+                            OR s.station_type = 'both'
+                            OR s.station_type IS NULL
+                        )");
 $stmt->execute([$station_slug]);
 $station = $stmt->fetch();
 
