@@ -334,10 +334,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && verify_csrf_token($_POST['csrf_token
         $stmt->execute([$station_id]);
         $user_data = $stmt->fetch();
 
-        $stmt = $conn->prepare("SELECT cost_per_unit FROM coin_pricing WHERE action_type = 'video_upload' LIMIT 1");
+        $stmt = $conn->prepare("SELECT coins_required FROM coin_pricing WHERE action_type = 'video_upload' LIMIT 1");
         $stmt->execute();
         $pricing = $stmt->fetch();
-        $audio_upload_cost = $pricing ? (int)$pricing['cost_per_unit'] : 10; // Same cost as video upload
+        $audio_upload_cost = $pricing ? (int)$pricing['coins_required'] : 10; // Same cost as video upload
 
         // Check coin balance
         $current_balance = $user_data ? (int)$user_data['coins'] : 0;

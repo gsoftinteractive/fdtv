@@ -291,10 +291,10 @@ function handleFinalize($station_id, $conn) {
         $priority = isset($metadata['priority']) ? $metadata['priority'] : 3;
 
         // Get current coin pricing
-        $stmt = $conn->prepare("SELECT cost_per_unit FROM coin_pricing WHERE action_type = 'video_upload' LIMIT 1");
+        $stmt = $conn->prepare("SELECT coins_required FROM coin_pricing WHERE action_type = 'video_upload' LIMIT 1");
         $stmt->execute();
         $pricing = $stmt->fetch();
-        $video_upload_cost = $pricing ? (int)$pricing['cost_per_unit'] : 10;
+        $video_upload_cost = $pricing ? (int)$pricing['coins_required'] : 10;
 
         // Get current user coin balance
         $stmt = $conn->prepare("SELECT coins FROM users WHERE id = (SELECT user_id FROM stations WHERE id = ?)");
