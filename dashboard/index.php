@@ -160,7 +160,21 @@ $flash = get_flash();
                     <h2 class="card-title">Your Station</h2>
                 </div>
                 <p><strong>Station Name:</strong> <?php echo clean($station['station_name']); ?></p>
-                <p><strong>Station URL:</strong> <a href="<?php echo SITE_URL; ?>/station/view.php?name=<?php echo $station['slug']; ?>" target="_blank"><?php echo SITE_URL; ?>/station/<?php echo $station['slug']; ?></a></p>
+
+                <?php
+                $station_type = isset($station['station_type']) ? $station['station_type'] : 'both';
+                $has_tv = in_array($station_type, ['tv', 'both']);
+                $has_radio = in_array($station_type, ['radio', 'both']);
+                ?>
+
+                <?php if ($has_tv): ?>
+                <p><strong>TV Station URL:</strong> <a href="<?php echo SITE_URL; ?>/station/view.php?name=<?php echo $station['slug']; ?>" target="_blank"><?php echo SITE_URL; ?>/station/<?php echo $station['slug']; ?></a></p>
+                <?php endif; ?>
+
+                <?php if ($has_radio): ?>
+                <p><strong>Radio Station URL:</strong> <a href="<?php echo SITE_URL; ?>/radio/index.php?name=<?php echo $station['slug']; ?>" target="_blank"><?php echo SITE_URL; ?>/radio/<?php echo $station['slug']; ?></a></p>
+                <?php endif; ?>
+
                 <p><strong>Status:</strong> <span class="badge badge-<?php echo $station['status'] == 'active' ? 'success' : 'danger'; ?>"><?php echo ucfirst($station['status']); ?></span></p>
                 
                 <div style="margin-top: 1.5rem;">

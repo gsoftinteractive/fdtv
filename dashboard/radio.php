@@ -21,8 +21,8 @@ if (!$station) {
     redirect('index.php');
 }
 
-// Check if user has radio access
-$station_type = $station['station_type'] ?? 'tv';
+// Check if user has radio access (only if station_type column exists)
+$station_type = isset($station['station_type']) ? $station['station_type'] : 'both';
 if ($station_type !== 'radio' && $station_type !== 'both') {
     set_flash('Radio features are not available. You created a TV-only station. Please contact admin to upgrade to "Both TV & Radio".', 'warning');
     redirect('index.php');
@@ -1165,14 +1165,25 @@ $flash = get_flash();
                         <h2 class="card-title">Upload Audio</h2>
                     </div>
 
-                    <form method="POST" enctype="multipart/form-data">
+                    <form method="POST" enctype="multipart/form-data" id="audioUploadForm">
                         <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
                         <input type="hidden" name="action" value="upload_audio">
 
                         <div class="form-group">
                             <label>Audio File *</label>
-                            <input type="file" name="audio_file" accept="audio/*" required>
+                            <input type="file" name="audio_file" accept="audio/*" required id="audioFileInput">
                             <small style="color: #6b7280;">Supported: MP3, WAV, OGG, AAC, M4A (Max 50MB)</small>
+
+                            <!-- Upload Progress Bar -->
+                            <div id="audioUploadProgress" style="display: none; margin-top: 1rem;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Uploading...</span>
+                                    <span id="audioUploadPercent" style="font-size: 0.875rem; font-weight: 600; color: #6366f1;">0%</span>
+                                </div>
+                                <div style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                                    <div id="audioUploadBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); transition: width 0.3s;"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -1730,6 +1741,72 @@ $flash = get_flash();
         document.getElementById('audioModal').addEventListener('click', (e) => {
             if (e.target === document.getElementById('audioModal')) closeAudioModal();
         });
+
+        // Audio upload progress
+        const audioUploadForm = document.getElementById('audioUploadForm');
+        if (audioUploadForm) {
+            audioUploadForm.addEventListener('submit', function(e) {
+                const fileInput = document.getElementById('audioFileInput');
+                if (!fileInput || !fileInput.files[0]) {
+                    return; // No file selected, allow default form submission
+                }
+
+                e.preventDefault(); // Prevent default form submission
+
+                const formData = new FormData(this);
+                const progressBar = document.getElementById('audioUploadProgress');
+                const progressBarFill = document.getElementById('audioUploadBar');
+                const progressPercent = document.getElementById('audioUploadPercent');
+                const submitButton = this.querySelector('button[type="submit"]');
+
+                // Show progress bar
+                progressBar.style.display = 'block';
+                progressBarFill.style.width = '0%';
+                progressPercent.textContent = '0%';
+                submitButton.disabled = true;
+                submitButton.textContent = 'Uploading...';
+
+                // Create XMLHttpRequest
+                const xhr = new XMLHttpRequest();
+
+                // Track upload progress
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        progressBarFill.style.width = percentComplete + '%';
+                        progressPercent.textContent = percentComplete + '%';
+                    }
+                });
+
+                // Handle completion
+                xhr.addEventListener('load', function() {
+                    if (xhr.status === 200) {
+                        progressBarFill.style.width = '100%';
+                        progressPercent.textContent = '100%';
+                        setTimeout(() => {
+                            window.location.reload(); // Reload to show success message
+                        }, 500);
+                    } else {
+                        alert('Upload failed. Please try again.');
+                        progressBar.style.display = 'none';
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Upload Track';
+                    }
+                });
+
+                // Handle errors
+                xhr.addEventListener('error', function() {
+                    alert('Upload failed. Please check your connection and try again.');
+                    progressBar.style.display = 'none';
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Upload Track';
+                });
+
+                // Send request
+                xhr.open('POST', window.location.href, true);
+                xhr.send(formData);
+            });
+        }
     </script>
 </body>
 </html>
