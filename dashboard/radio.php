@@ -17,6 +17,14 @@ $stmt->execute([$user_id]);
 $station = $stmt->fetch();
 
 if (!$station) {
+    set_flash('You need to create a station first.', 'warning');
+    redirect('index.php');
+}
+
+// Check if user has radio access
+$station_type = $station['station_type'] ?? 'tv';
+if ($station_type !== 'radio' && $station_type !== 'both') {
+    set_flash('Radio features are not available. You created a TV-only station. Please contact admin to upgrade to "Both TV & Radio".', 'warning');
     redirect('index.php');
 }
 

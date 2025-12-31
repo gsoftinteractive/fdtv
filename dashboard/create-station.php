@@ -26,11 +26,22 @@ if ($existing_station) {
     redirect('index.php');
 }
 
-// Get station creation cost
+// Get base station creation cost
 $stmt = $conn->prepare("SELECT coins_required FROM coin_pricing WHERE action_type = 'station_creation' AND is_active = 1");
 $stmt->execute();
 $pricing = $stmt->fetch();
-$creation_cost = $pricing['coins_required'] ?? 100;
+$base_cost = $pricing['coins_required'] ?? 100;
+
+// Station type pricing
+$station_type_costs = [
+    'tv' => $base_cost,      // 100 coins for TV only
+    'radio' => $base_cost,   // 100 coins for Radio only
+    'both' => (int)($base_cost * 1.5)  // 150 coins for both (50% more)
+];
+
+// Default to TV for display
+$selected_type = $_POST['station_type'] ?? 'tv';
+$creation_cost = $station_type_costs[$selected_type] ?? $base_cost;
 
 $errors = [];
 $success = '';
@@ -49,9 +60,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_station'])) {
             $errors[] = "Invalid station type.";
         }
 
+        // Get cost for selected station type
+        $creation_cost = $station_type_costs[$station_type] ?? $base_cost;
+
         // Check if user has enough coins
         if ($user['coins'] < $creation_cost) {
-            $errors[] = "Insufficient coins. You need {$creation_cost} coins to create a station. You have {$user['coins']} coins.";
+            $errors[] = "Insufficient coins. You need {$creation_cost} coins to create this station type. You have {$user['coins']} coins.";
         }
 
         if (empty($errors)) {
@@ -200,12 +214,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_station'])) {
 
                     <div class="form-group">
                         <label>Station Type *</label>
-                        <select name="station_type" required>
-                            <option value="tv">TV Station (Video Broadcasting)</option>
-                            <option value="radio">Radio Station (Audio Only)</option>
-                            <option value="both">Both TV & Radio</option>
+                        <select name="station_type" required id="stationType" onchange="updateCost()">
+                            <option value="tv">TV Station (Video Broadcasting) - <?php echo $station_type_costs['tv']; ?> coins</option>
+                            <option value="radio">Radio Station (Audio Only) - <?php echo $station_type_costs['radio']; ?> coins</option>
+                            <option value="both">Both TV & Radio - <?php echo $station_type_costs['both']; ?> coins (Best Value!)</option>
                         </select>
-                        <small style="color: #6b7280;">Choose the type of broadcasting you want to do</small>
+                        <small style="color: #6b7280;">
+                            Choose the type of broadcasting you want to do. You can only access features for your selected type.
+                        </small>
                     </div>
 
                     <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;">
@@ -233,5 +249,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_station'])) {
             </div>
         </div>
     </div>
+
+    <script>
+        const costs = {
+            'tv': <?php echo $station_type_costs['tv']; ?>,
+            'radio': <?php echo $station_type_costs['radio']; ?>,
+            'both': <?php echo $station_type_costs['both']; ?>
+        };
+        const currentBalance = <?php echo $user['coins']; ?>;
+
+        function updateCost() {
+            const stationType = document.getElementById('stationType').value;
+            const cost = costs[stationType];
+            const afterBalance = currentBalance - cost;
+
+            // Update display elements if they exist
+            const costElements = document.querySelectorAll('[data-cost]');
+            costElements.forEach(el => {
+                el.textContent = cost + ' coins';
+                el.style.color = '#dc2626';
+            });
+
+            const afterElements = document.querySelectorAll('[data-after-balance]');
+            afterElements.forEach(el => {
+                el.textContent = afterBalance.toLocaleString() + ' coins';
+                el.style.color = afterBalance >= 0 ? '#059669' : '#dc2626';
+            });
+
+            // Update button text
+            const button = document.querySelector('button[name="create_station"]');
+            if (button) {
+                button.textContent = `Create Station (${cost} coins)`;
+            }
+        }
+    </script>
 </body>
 </html>
