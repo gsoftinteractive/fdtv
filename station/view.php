@@ -244,13 +244,11 @@ $current_time = date('H:i');
             <video id="tvPlayer" playsinline></video>
             
             <!-- Station Logo Overlay - Dynamic Position -->
-            <div class="station-logo position-<?php echo $station['logo_position']; ?> size-<?php echo $station['logo_size']; ?>" id="stationLogo" style="opacity: <?php echo $station['logo_opacity']; ?>;">
-                <?php if ($station['logo'] || $station['logo_path']): ?>
-                    <img src="../uploads/logos/<?php echo $station['logo_path'] ?: $station['logo']; ?>" alt="<?php echo clean($station['station_name']); ?>">
-                <?php else: ?>
-                    <span class="logo-text"><?php echo strtoupper(substr($station['station_name'], 0, 3)); ?></span>
-                <?php endif; ?>
+            <?php if ($station['logo'] || $station['logo_path']): ?>
+            <div class="station-logo size-<?php echo $station['logo_size']; ?>" id="stationLogo" style="opacity: <?php echo $station['logo_opacity']; ?>; position: absolute; left: <?php echo $station['logo_position_x'] ?? 90; ?>%; top: <?php echo $station['logo_position_y'] ?? 5; ?>%; transform: translate(-50%, -50%);">
+                <img src="../uploads/logos/<?php echo $station['logo_path'] ?: $station['logo']; ?>" alt="<?php echo clean($station['station_name']); ?>">
             </div>
+            <?php endif; ?>
 
             <!-- Live Feed Container (for external streams) -->
             <div id="liveFeedContainer" class="live-feed-container" style="display: none;">
@@ -401,6 +399,8 @@ $current_time = date('H:i');
             ticker_speed: <?php echo (int)($station['ticker_speed'] ?? 60); ?>,
             clock_position_x: <?php echo (int)($station['clock_position_x'] ?? 50); ?>,
             clock_position_y: <?php echo (int)($station['clock_position_y'] ?? 5); ?>,
+            logo_position_x: <?php echo (int)($station['logo_position_x'] ?? 90); ?>,
+            logo_position_y: <?php echo (int)($station['logo_position_y'] ?? 5); ?>,
             social_badges: <?php echo json_encode($station['social_badges'] ?? '[]'); ?>,
             lower_thirds_presets: <?php echo json_encode($station['lower_thirds_presets'] ?? '[]'); ?>,
             videos: <?php echo json_encode(array_map(function($v) use ($station) {

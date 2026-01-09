@@ -134,6 +134,9 @@ class LiveTVPlayer {
         this.initTickerSpeedControl();
         this.initLowerThirds();
         this.initSocialMediaBadges();
+
+        // Initialize logo position
+        this.initLogoPosition();
     }
 
     /**
@@ -1453,6 +1456,29 @@ class LiveTVPlayer {
 
         // Remove the default top positioning from CSS
         this.timeDisplay.style.position = 'absolute';
+    }
+
+    // Logo position initialization
+    initLogoPosition() {
+        this.stationLogo = document.getElementById('stationLogo');
+        if (!this.stationLogo) return;
+
+        // Load logo position from station database settings (percentage-based)
+        const xPercent = parseFloat(this.station.logo_position_x) || 90;
+        const yPercent = parseFloat(this.station.logo_position_y) || 5;
+
+        // Apply station-configured position
+        this.setLogoPosition(xPercent, yPercent);
+    }
+
+    setLogoPosition(xPercent, yPercent) {
+        if (!this.stationLogo) return;
+
+        // Use percentage-based positioning for responsive design
+        this.stationLogo.style.left = xPercent + '%';
+        this.stationLogo.style.top = yPercent + '%';
+        this.stationLogo.style.transform = 'translate(-50%, -50%)';
+        this.stationLogo.style.position = 'absolute';
     }
 
     // Viewer count simulation

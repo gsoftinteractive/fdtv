@@ -25,6 +25,18 @@ if (!$station) {
     exit();
 }
 
+// Ensure logo position columns exist (auto-migrate)
+try {
+    $conn->exec("ALTER TABLE stations ADD COLUMN logo_position_x INT DEFAULT 90 AFTER logo_size");
+    $conn->exec("ALTER TABLE stations ADD COLUMN logo_position_y INT DEFAULT 5 AFTER logo_position_x");
+    // Refresh station data after adding columns
+    $stmt = $conn->prepare("SELECT * FROM stations WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$user_id]);
+    $station = $stmt->fetch();
+} catch (Exception $e) {
+    // Columns likely already exist, ignore
+}
+
 $success = '';
 $error = '';
 
@@ -40,6 +52,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Clock position (now percentage-based for draggable positioning)
                 $clock_position_x = max(5, min(95, (int)($_POST['clock_position_x'] ?? 50)));
                 $clock_position_y = max(3, min(90, (int)($_POST['clock_position_y'] ?? 5)));
+
+                // Logo position (percentage-based for draggable positioning)
+                $logo_position_x = max(5, min(95, (int)($_POST['logo_position_x'] ?? 90)));
+                $logo_position_y = max(3, min(90, (int)($_POST['logo_position_y'] ?? 5)));
 
                 // Social badges (JSON)
                 $social_badges = [];
@@ -79,6 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     UPDATE stations SET
                         clock_position_x = ?,
                         clock_position_y = ?,
+                        logo_position_x = ?,
+                        logo_position_y = ?,
                         social_badges = ?,
                         lower_thirds_presets = ?,
                         display_settings_updated_at = NOW()
@@ -88,6 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([
                     $clock_position_x,
                     $clock_position_y,
+                    $logo_position_x,
+                    $logo_position_y,
                     json_encode($social_badges),
                     json_encode($lower_thirds_presets),
                     $station['id']
@@ -456,6 +476,55 @@ if (empty($lower_thirds_presets)) {
             </div>
         </div>
 
+        <!-- Logo Position -->
+        <div class="settings-card">
+            <h2>🖼️ Logo Position</h2>
+            <?php if ($station['logo'] || $station['logo_path']): ?>
+            <p style="color: #666; margin-bottom: 16px;">Drag your logo to any position on the preview screen below.</p>
+
+            <input type="hidden" id="logo_position_x" name="logo_position_x" value="<?php echo $station['logo_position_x'] ?? 90; ?>">
+            <input type="hidden" id="logo_position_y" name="logo_position_y" value="<?php echo $station['logo_position_y'] ?? 5; ?>">
+
+            <div class="clock-position-preview" id="logoPositionPreview" style="height: 300px; cursor: crosshair; position: relative;">
+                <!-- Grid overlay for guidance -->
+                <div style="position: absolute; inset: 0; pointer-events: none; opacity: 0.2;">
+                    <div style="position: absolute; left: 33.33%; top: 0; bottom: 0; border-left: 1px dashed #fff;"></div>
+                    <div style="position: absolute; left: 66.66%; top: 0; bottom: 0; border-left: 1px dashed #fff;"></div>
+                    <div style="position: absolute; top: 33.33%; left: 0; right: 0; border-top: 1px dashed #fff;"></div>
+                    <div style="position: absolute; top: 66.66%; left: 0; right: 0; border-top: 1px dashed #fff;"></div>
+                </div>
+
+                <!-- Draggable logo -->
+                <div id="logoPreview" style="position: absolute; cursor: grab; user-select: none; z-index: 5;">
+                    <img src="../uploads/logos/<?php echo $station['logo_path'] ?: $station['logo']; ?>"
+                         alt="Logo" style="max-height: 60px; max-width: 120px; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.5);">
+                </div>
+
+                <!-- Quick position buttons -->
+                <div class="quick-positions" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 10;">
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="10" data-y="8" title="Top Left">↖</button>
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="50" data-y="8" title="Top Center">↑</button>
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="90" data-y="8" title="Top Right">↗</button>
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="10" data-y="50" title="Middle Left">←</button>
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="50" data-y="50" title="Center">●</button>
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="90" data-y="50" title="Middle Right">→</button>
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="10" data-y="80" title="Bottom Left">↙</button>
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="50" data-y="80" title="Bottom Center">↓</button>
+                    <button type="button" class="quick-pos-btn logo-pos-btn" data-x="90" data-y="80" title="Bottom Right">↘</button>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                <span style="color: #666;">Position: <strong id="logoPositionDisplay">X: 90%, Y: 5%</strong></span>
+                <button type="button" id="resetLogoPos" class="btn-small" style="background: #6b7280; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Reset to Default</button>
+            </div>
+            <?php else: ?>
+            <div class="info-box" style="background: #fef3c7; border-color: #f59e0b;">
+                <strong>⚠️ No Logo Uploaded:</strong> Please upload a logo in <a href="station.php" style="color: #7c3aed;">Station Settings</a> first. Once uploaded, you can position it here.
+            </div>
+            <?php endif; ?>
+        </div>
+
         <!-- Social Media Badges -->
         <div class="settings-card">
             <h2>📱 Social Media Badges</h2>
@@ -661,6 +730,114 @@ setInterval(() => {
     const minutes = now.getMinutes().toString().padStart(2, '0');
     clockPreview.textContent = `${hours}:${minutes}`;
 }, 1000);
+
+// Logo position - Draggable functionality
+const logoPreview = document.getElementById('logoPreview');
+const logoContainer = document.getElementById('logoPositionPreview');
+const logoXInput = document.getElementById('logo_position_x');
+const logoYInput = document.getElementById('logo_position_y');
+const logoPositionDisplay = document.getElementById('logoPositionDisplay');
+
+if (logoPreview && logoContainer) {
+    let isLogoDragging = false;
+
+    // Initialize logo position
+    function initLogoPosition() {
+        const xPercent = parseFloat(logoXInput.value) || 90;
+        const yPercent = parseFloat(logoYInput.value) || 5;
+        setLogoPosition(xPercent, yPercent);
+    }
+
+    function setLogoPosition(xPercent, yPercent) {
+        // Clamp values
+        xPercent = Math.max(5, Math.min(95, xPercent));
+        yPercent = Math.max(3, Math.min(90, yPercent));
+
+        logoPreview.style.left = xPercent + '%';
+        logoPreview.style.top = yPercent + '%';
+        logoPreview.style.transform = 'translate(-50%, -50%)';
+
+        logoXInput.value = Math.round(xPercent);
+        logoYInput.value = Math.round(yPercent);
+        logoPositionDisplay.textContent = `X: ${Math.round(xPercent)}%, Y: ${Math.round(yPercent)}%`;
+    }
+
+    // Mouse drag events for logo
+    logoPreview.addEventListener('mousedown', (e) => {
+        isLogoDragging = true;
+        logoPreview.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isLogoDragging) return;
+
+        const rect = logoContainer.getBoundingClientRect();
+        const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+        const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+        setLogoPosition(xPercent, yPercent);
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isLogoDragging) {
+            isLogoDragging = false;
+            logoPreview.style.cursor = 'grab';
+        }
+    });
+
+    // Touch drag events for mobile
+    logoPreview.addEventListener('touchstart', (e) => {
+        isLogoDragging = true;
+        e.preventDefault();
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isLogoDragging) return;
+
+        const touch = e.touches[0];
+        const rect = logoContainer.getBoundingClientRect();
+        const xPercent = ((touch.clientX - rect.left) / rect.width) * 100;
+        const yPercent = ((touch.clientY - rect.top) / rect.height) * 100;
+
+        setLogoPosition(xPercent, yPercent);
+    });
+
+    document.addEventListener('touchend', () => {
+        isLogoDragging = false;
+    });
+
+    // Click on container to move logo
+    logoContainer.addEventListener('click', (e) => {
+        if (e.target.closest('.quick-pos-btn') || e.target.closest('#logoPreview')) return;
+
+        const rect = logoContainer.getBoundingClientRect();
+        const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+        const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+        setLogoPosition(xPercent, yPercent);
+    });
+
+    // Quick position buttons for logo
+    document.querySelectorAll('.logo-pos-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const x = parseFloat(this.dataset.x);
+            const y = parseFloat(this.dataset.y);
+            setLogoPosition(x, y);
+        });
+    });
+
+    // Reset logo button
+    document.getElementById('resetLogoPos').addEventListener('click', function(e) {
+        e.preventDefault();
+        setLogoPosition(90, 5); // Default: top right
+    });
+
+    // Initialize
+    initLogoPosition();
+}
 </script>
 
         </div>

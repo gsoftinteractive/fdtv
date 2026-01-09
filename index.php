@@ -22,8 +22,8 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Launch your own TV station with FDTV. Stream content 24/7, manage your schedule, and reach your audience worldwide.">
-    <meta name="keywords" content="TV station, streaming, broadcast, video platform, IPTV, internet radio">
+    <meta name="description" content="Launch your own TV or Radio station with FDTV. Stream video and audio content 24/7, manage your schedule, and reach your audience worldwide.">
+    <meta name="keywords" content="TV station, radio station, streaming, broadcast, video platform, audio streaming, IPTV, internet radio">
     <meta name="theme-color" content="#6366f1">
 
     <!-- PWA Meta Tags -->
@@ -34,12 +34,12 @@ try {
     <link rel="apple-touch-icon" href="/assets/images/icons/icon-192.png">
 
     <!-- Open Graph -->
-    <meta property="og:title" content="FDTV - Your Own TV Station">
-    <meta property="og:description" content="Launch and manage your own 24/7 TV station with ease">
+    <meta property="og:title" content="FDTV - Your Own TV & Radio Station">
+    <meta property="og:description" content="Launch and manage your own 24/7 TV or Radio station with ease">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?php echo SITE_URL; ?>">
 
-    <title>FDTV - Launch Your Own TV Station | 24/7 Streaming Platform</title>
+    <title>FDTV - Launch Your Own TV & Radio Station | 24/7 Streaming Platform</title>
 
     <link rel="stylesheet" href="assets/css/landing.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
