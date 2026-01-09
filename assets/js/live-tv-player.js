@@ -90,7 +90,14 @@ class LiveTVPlayer {
 
         // Set current color from station database settings
         const stationColor = this.station.ticker_color || 'red';
-        this.currentColorIndex = this.tickerColorPresets.findIndex(p => p.value === stationColor);
+        // Check if it's a hex color (starts with #) or a named color
+        if (stationColor.startsWith('#')) {
+            // Find by hex value (bg property)
+            this.currentColorIndex = this.tickerColorPresets.findIndex(p => p.bg.toLowerCase() === stationColor.toLowerCase());
+        } else {
+            // Find by named value
+            this.currentColorIndex = this.tickerColorPresets.findIndex(p => p.value === stationColor);
+        }
         if (this.currentColorIndex === -1) this.currentColorIndex = 0;
 
         // Check mode and content availability
@@ -483,12 +490,50 @@ class LiveTVPlayer {
     initTickerColorChange() {
         if (!this.tickerBar) return;
 
-        // Apply color and label from station database settings
-        this.applyTickerColor(this.currentColorIndex);
+        // Apply color from station database settings
+        const stationColor = this.station.ticker_color || 'red';
 
-        // Apply custom label from station settings
+        // If it's a preset color, use the preset, otherwise apply directly
+        if (this.currentColorIndex >= 0 && this.currentColorIndex < this.tickerColorPresets.length) {
+            const preset = this.tickerColorPresets[this.currentColorIndex];
+            // Check if the station color matches this preset
+            const isMatchingPreset = (stationColor.startsWith('#') && preset.bg.toLowerCase() === stationColor.toLowerCase()) ||
+                                     (!stationColor.startsWith('#') && preset.value === stationColor);
+
+            if (isMatchingPreset) {
+                // Apply preset background color
+                this.tickerBar.style.background = preset.bg;
+                if (this.tickerText) {
+                    this.tickerText.style.color = preset.text;
+                }
+                if (this.tickerLabel) {
+                    this.tickerLabel.style.color = preset.bg;
+                }
+            } else {
+                // Custom color not in presets - apply directly from station settings
+                this.applyCustomTickerColor(stationColor);
+            }
+        } else {
+            // Custom color not in presets - apply directly from station settings
+            this.applyCustomTickerColor(stationColor);
+        }
+
+        // Apply custom label from station settings (ALWAYS use station label, not preset label)
         if (this.tickerLabel && this.station.ticker_label) {
             this.tickerLabel.textContent = this.station.ticker_label;
+        }
+    }
+
+    applyCustomTickerColor(hexColor) {
+        // Apply custom hex color directly
+        if (this.tickerBar) {
+            this.tickerBar.style.background = hexColor;
+        }
+        if (this.tickerText) {
+            this.tickerText.style.color = '#ffffff';
+        }
+        if (this.tickerLabel) {
+            this.tickerLabel.style.color = hexColor;
         }
     }
 
