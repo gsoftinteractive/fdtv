@@ -121,14 +121,37 @@ if ($jingle_enabled) {
 // Get active ticker type
 $active_ticker_type = $station['active_ticker_type'] ?? 'breaking';
 
+// Color map for named colors to hex
+$color_map = [
+    'red' => '#dc2626',
+    'purple' => '#7c3aed',
+    'green' => '#059669',
+    'blue' => '#2563eb',
+    'orange' => '#ea580c',
+    'pink' => '#db2777',
+    'teal' => '#0d9488',
+    'indigo' => '#4f46e5',
+    'yellow' => '#eab308',
+    'cyan' => '#06b6d4',
+    'rose' => '#f43f5e',
+    'black' => '#000000'
+];
+
+// Get station ticker color setting (from display settings) - this is the main color
+$station_ticker_color = $station['ticker_color'] ?? 'red';
+// Convert named color to hex if needed
+if (isset($color_map[$station_ticker_color])) {
+    $station_ticker_color = $color_map[$station_ticker_color];
+}
+
 // Get ticker settings based on active type
 $ticker_data = [];
 $ticker_style = [
-    'bg_color' => '#dc2626',
+    'bg_color' => $station_ticker_color, // Use station's ticker color setting
     'color' => '#ffffff',
-    'speed' => 60,
+    'speed' => (int)($station['ticker_speed'] ?? 60),
     'font_size' => 15,
-    'label' => 'BREAKING'
+    'label' => $station['ticker_label'] ?? 'BREAKING'
 ];
 
 if ($active_ticker_type === 'breaking') {
@@ -136,15 +159,7 @@ if ($active_ticker_type === 'breaking') {
     $stmt = $conn->prepare("SELECT * FROM station_tickers WHERE station_id = ? AND is_active = 1 AND (ticker_category = 'breaking' OR ticker_category IS NULL) ORDER BY priority DESC, created_at DESC");
     $stmt->execute([$station['id']]);
     $ticker_data = $stmt->fetchAll();
-
-    if (!empty($ticker_data)) {
-        $first = $ticker_data[0];
-        $ticker_style['bg_color'] = $first['bg_color'] ?? '#dc2626';
-        $ticker_style['color'] = $first['color'] ?? '#ffffff';
-        $ticker_style['speed'] = $first['speed'] ?? 60;
-        $ticker_style['font_size'] = $first['font_size'] ?? 15;
-        $ticker_style['label'] = 'BREAKING';
-    }
+    // Keep station's ticker color, label, and speed - don't override from individual messages
 
 } elseif ($active_ticker_type === 'events') {
     // Get event tickers (only currently scheduled ones)
@@ -160,15 +175,7 @@ if ($active_ticker_type === 'breaking') {
         ORDER BY priority DESC, created_at DESC");
     $stmt->execute([$station['id'], $current_datetime, $current_datetime]);
     $ticker_data = $stmt->fetchAll();
-
-    if (!empty($ticker_data)) {
-        $first = $ticker_data[0];
-        $ticker_style['bg_color'] = $first['bg_color'] ?? '#7c3aed';
-        $ticker_style['color'] = $first['color'] ?? '#ffffff';
-        $ticker_style['speed'] = $first['speed'] ?? 60;
-        $ticker_style['font_size'] = $first['font_size'] ?? 15;
-        $ticker_style['label'] = 'EVENTS';
-    }
+    // Keep station's ticker color, label, and speed - don't override from individual messages
 
 } elseif ($active_ticker_type === 'schedule') {
     // Generate program schedule ticker from videos
@@ -181,21 +188,6 @@ if ($active_ticker_type === 'breaking') {
     $stmt->execute([$station['id']]);
     $schedule_items = $stmt->fetchAll();
 
-    // Also get any schedule ticker custom settings
-    $stmt = $conn->prepare("SELECT * FROM station_tickers WHERE station_id = ? AND ticker_category = 'schedule' LIMIT 1");
-    $stmt->execute([$station['id']]);
-    $schedule_settings = $stmt->fetch();
-
-    if ($schedule_settings) {
-        $ticker_style['bg_color'] = $schedule_settings['bg_color'] ?? '#059669';
-        $ticker_style['color'] = $schedule_settings['color'] ?? '#ffffff';
-        $ticker_style['speed'] = $schedule_settings['speed'] ?? 60;
-        $ticker_style['font_size'] = $schedule_settings['font_size'] ?? 15;
-    } else {
-        $ticker_style['bg_color'] = '#059669';
-    }
-    $ticker_style['label'] = 'SCHEDULE';
-
     // Convert schedule to ticker format
     if (!empty($schedule_items)) {
         foreach ($schedule_items as $item) {
@@ -206,6 +198,7 @@ if ($active_ticker_type === 'breaking') {
             ];
         }
     }
+    // Keep station's ticker color, label, and speed from display settings
 }
 
 // Fallback to default tickers
@@ -406,8 +399,8 @@ $current_time = date('H:i');
             ticker_label: <?php echo json_encode($station['ticker_label'] ?? 'BREAKING'); ?>,
             ticker_mode: <?php echo json_encode($station['ticker_mode'] ?? 'single'); ?>,
             ticker_speed: <?php echo (int)($station['ticker_speed'] ?? 60); ?>,
-            clock_position_x: <?php echo (int)($station['clock_position_x'] ?? 0); ?>,
-            clock_position_y: <?php echo (int)($station['clock_position_y'] ?? 0); ?>,
+            clock_position_x: <?php echo (int)($station['clock_position_x'] ?? 50); ?>,
+            clock_position_y: <?php echo (int)($station['clock_position_y'] ?? 5); ?>,
             social_badges: <?php echo json_encode($station['social_badges'] ?? '[]'); ?>,
             lower_thirds_presets: <?php echo json_encode($station['lower_thirds_presets'] ?? '[]'); ?>,
             videos: <?php echo json_encode(array_map(function($v) use ($station) {

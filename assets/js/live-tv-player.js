@@ -1385,24 +1385,29 @@ class LiveTVPlayer {
     }
 
     makeTimeDisplayDraggable() {
-        // Load clock position from station database settings
-        const xOffset = parseInt(this.station.clock_position_x) || 0;
-        const yOffset = parseInt(this.station.clock_position_y) || 0;
+        // Load clock position from station database settings (now percentage-based)
+        const xPercent = parseFloat(this.station.clock_position_x) || 50;
+        const yPercent = parseFloat(this.station.clock_position_y) || 5;
 
         // Apply station-configured position
-        this.setTimeDisplayPosition(xOffset, yOffset);
+        this.setTimeDisplayPosition(xPercent, yPercent);
 
-        // Clock is no longer draggable - position controlled by admin dashboard
-        // Remove grab cursor
+        // Clock position is controlled by admin dashboard
         if (this.timeDisplay) {
             this.timeDisplay.style.cursor = 'default';
         }
     }
 
-    setTimeDisplayPosition(x, y) {
-        this.timeDisplay.style.transform = `translate(${x}px, ${y}px) translateX(-50%)`;
-        this.timeDisplay.style.left = '50%';
-        this.timeDisplay.style.top = '20px';
+    setTimeDisplayPosition(xPercent, yPercent) {
+        if (!this.timeDisplay) return;
+
+        // Use percentage-based positioning for responsive design
+        this.timeDisplay.style.left = xPercent + '%';
+        this.timeDisplay.style.top = yPercent + '%';
+        this.timeDisplay.style.transform = 'translate(-50%, -50%)';
+
+        // Remove the default top positioning from CSS
+        this.timeDisplay.style.position = 'absolute';
     }
 
     // Viewer count simulation

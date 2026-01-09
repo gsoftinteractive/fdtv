@@ -37,15 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'update_display_settings') {
             try {
-                // Ticker settings
-                $ticker_color = $_POST['ticker_color'] ?? 'red';
-                $ticker_label = strtoupper(substr(trim($_POST['ticker_label'] ?? 'BREAKING'), 0, 15));
-                $ticker_mode = $_POST['ticker_mode'] ?? 'single';
-                $ticker_speed = max(20, min(120, (int)($_POST['ticker_speed'] ?? 60)));
-
-                // Clock position
-                $clock_position_x = (int)($_POST['clock_position_x'] ?? 0);
-                $clock_position_y = (int)($_POST['clock_position_y'] ?? 0);
+                // Clock position (now percentage-based for draggable positioning)
+                $clock_position_x = max(5, min(95, (int)($_POST['clock_position_x'] ?? 50)));
+                $clock_position_y = max(3, min(90, (int)($_POST['clock_position_y'] ?? 5)));
 
                 // Social badges (JSON)
                 $social_badges = [];
@@ -80,13 +74,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                // Update database
+                // Update database (ticker settings are now managed in ticker.php)
                 $stmt = $conn->prepare("
                     UPDATE stations SET
-                        ticker_color = ?,
-                        ticker_label = ?,
-                        ticker_mode = ?,
-                        ticker_speed = ?,
                         clock_position_x = ?,
                         clock_position_y = ?,
                         social_badges = ?,
@@ -96,10 +86,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
 
                 $stmt->execute([
-                    $ticker_color,
-                    $ticker_label,
-                    $ticker_mode,
-                    $ticker_speed,
                     $clock_position_x,
                     $clock_position_y,
                     json_encode($social_badges),
@@ -365,19 +351,52 @@ if (empty($lower_thirds_presets)) {
 .clock-preview {
     position: absolute;
     background: linear-gradient(135deg, rgba(124, 58, 237, 0.9) 0%, rgba(0, 0, 0, 0.9) 100%);
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 10px 20px;
+    border-radius: 8px;
     color: white;
     font-weight: 600;
+    font-family: 'Courier New', monospace;
+    font-size: 1.2rem;
     border: 2px solid rgba(124, 58, 237, 0.5);
-    cursor: move;
-    transition: transform 0.1s;
+    cursor: grab;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    z-index: 5;
+}
+
+.clock-preview:hover {
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
+    border-color: #7c3aed;
+}
+
+.clock-preview:active {
+    cursor: grabbing;
+}
+
+.quick-pos-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quick-pos-btn:hover {
+    background: rgba(124, 58, 237, 0.8);
+    border-color: #7c3aed;
+    transform: scale(1.1);
 }
 </style>
 
 <div class="display-settings-page">
     <h1>📺 Display Settings</h1>
-    <p>Configure how your station appears to all viewers. These settings apply globally to everyone watching your channel.</p>
+    <p>Configure clock position, social badges, and lower thirds for your station. <a href="ticker.php" style="color: #7c3aed; text-decoration: none;">Manage ticker settings here &rarr;</a></p>
 
     <?php if ($success): ?>
         <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
@@ -391,114 +410,49 @@ if (empty($lower_thirds_presets)) {
         <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
         <input type="hidden" name="action" value="update_display_settings">
 
-        <!-- Ticker Settings -->
-        <div class="settings-card">
-            <h2>🎨 Ticker Settings</h2>
-
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="ticker_label">Ticker Label</label>
-                    <input type="text" id="ticker_label" name="ticker_label" class="form-control"
-                           value="<?php echo htmlspecialchars($station['ticker_label'] ?? 'BREAKING'); ?>"
-                           maxlength="15" placeholder="BREAKING">
-                    <small>Max 15 characters (e.g., BREAKING, LIVE, NEWS, ALERT)</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="ticker_mode">Ticker Mode</label>
-                    <select id="ticker_mode" name="ticker_mode" class="form-select">
-                        <option value="single" <?php echo ($station['ticker_mode'] ?? 'single') === 'single' ? 'selected' : ''; ?>>Single Line</option>
-                        <option value="double" <?php echo ($station['ticker_mode'] ?? 'single') === 'double' ? 'selected' : ''; ?>>Double Line</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="ticker_speed">Ticker Speed (seconds)</label>
-                    <input type="number" id="ticker_speed" name="ticker_speed" class="form-control"
-                           value="<?php echo $station['ticker_speed'] ?? 60; ?>"
-                           min="20" max="120" step="10">
-                    <small>20 = Very Fast, 60 = Normal, 120 = Very Slow</small>
-                </div>
-            </div>
-
-            <div class="form-group" style="margin-top: 20px;">
-                <label for="ticker_color_picker">Ticker Color</label>
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <input type="color" id="ticker_color_picker" name="ticker_color" class="color-picker"
-                           value="<?php
-                           // Convert named colors to hex
-                           $color_value = $station['ticker_color'] ?? '#dc2626';
-                           $color_map = [
-                               'red' => '#dc2626',
-                               'purple' => '#7c3aed',
-                               'green' => '#059669',
-                               'blue' => '#2563eb',
-                               'orange' => '#ea580c',
-                               'pink' => '#db2777',
-                               'teal' => '#0d9488',
-                               'indigo' => '#4f46e5'
-                           ];
-                           echo $color_map[$color_value] ?? $color_value;
-                           ?>">
-                    <div class="color-preview" id="colorPreview" style="width: 80px; height: 40px; border-radius: 6px; border: 2px solid #ddd; background: <?php echo $color_map[$station['ticker_color'] ?? 'red'] ?? ($station['ticker_color'] ?? '#dc2626'); ?>;"></div>
-                    <span id="colorValue" style="font-family: monospace; color: #666;"><?php echo $color_map[$station['ticker_color'] ?? 'red'] ?? ($station['ticker_color'] ?? '#dc2626'); ?></span>
-                </div>
-                <small style="display: block; margin-top: 8px;">Pick any color for your ticker background</small>
-
-                <div style="margin-top: 12px;">
-                    <strong style="font-size: 13px; color: #666;">Quick Presets:</strong>
-                    <div class="color-presets-mini" style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
-                        <?php
-                        $colors = [
-                            ['name' => 'Red', 'bg' => '#dc2626'],
-                            ['name' => 'Purple', 'bg' => '#7c3aed'],
-                            ['name' => 'Green', 'bg' => '#059669'],
-                            ['name' => 'Blue', 'bg' => '#2563eb'],
-                            ['name' => 'Orange', 'bg' => '#ea580c'],
-                            ['name' => 'Pink', 'bg' => '#db2777'],
-                            ['name' => 'Teal', 'bg' => '#0d9488'],
-                            ['name' => 'Indigo', 'bg' => '#4f46e5'],
-                            ['name' => 'Yellow', 'bg' => '#eab308'],
-                            ['name' => 'Cyan', 'bg' => '#06b6d4'],
-                            ['name' => 'Rose', 'bg' => '#f43f5e'],
-                            ['name' => 'Black', 'bg' => '#000000'],
-                        ];
-                        foreach ($colors as $color):
-                        ?>
-                            <button type="button" class="color-preset-mini" data-color="<?php echo $color['bg']; ?>" title="<?php echo $color['name']; ?>"
-                                    style="width: 36px; height: 36px; border-radius: 4px; border: 2px solid #ddd; background: <?php echo $color['bg']; ?>; cursor: pointer;"></button>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Clock Position -->
         <div class="settings-card">
             <h2>🕐 Clock Position</h2>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="clock_position_x">Horizontal Position (X)</label>
-                    <input type="number" id="clock_position_x" name="clock_position_x" class="form-control"
-                           value="<?php echo $station['clock_position_x'] ?? 0; ?>"
-                           step="10">
-                    <small>Negative = Left, Positive = Right, 0 = Center</small>
+            <p style="color: #666; margin-bottom: 16px;">Drag the clock to any position on the preview screen below. The position will be saved as a percentage so it works on all screen sizes.</p>
+
+            <input type="hidden" id="clock_position_x" name="clock_position_x" value="<?php echo $station['clock_position_x'] ?? 50; ?>">
+            <input type="hidden" id="clock_position_y" name="clock_position_y" value="<?php echo $station['clock_position_y'] ?? 5; ?>">
+
+            <div class="clock-position-preview" id="clockPositionPreview" style="height: 300px; cursor: crosshair; position: relative;">
+                <!-- Grid overlay for guidance -->
+                <div style="position: absolute; inset: 0; pointer-events: none; opacity: 0.2;">
+                    <div style="position: absolute; left: 33.33%; top: 0; bottom: 0; border-left: 1px dashed #fff;"></div>
+                    <div style="position: absolute; left: 66.66%; top: 0; bottom: 0; border-left: 1px dashed #fff;"></div>
+                    <div style="position: absolute; top: 33.33%; left: 0; right: 0; border-top: 1px dashed #fff;"></div>
+                    <div style="position: absolute; top: 66.66%; left: 0; right: 0; border-top: 1px dashed #fff;"></div>
                 </div>
 
-                <div class="form-group">
-                    <label for="clock_position_y">Vertical Position (Y)</label>
-                    <input type="number" id="clock_position_y" name="clock_position_y" class="form-control"
-                           value="<?php echo $station['clock_position_y'] ?? 0; ?>"
-                           step="10">
-                    <small>Negative = Up, Positive = Down, 0 = Default</small>
+                <!-- Draggable clock -->
+                <div class="clock-preview" id="clockPreview" style="position: absolute; cursor: grab; user-select: none;">
+                    <span id="clockTime">12:34</span>
+                </div>
+
+                <!-- Quick position buttons -->
+                <div class="quick-positions" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 10;">
+                    <button type="button" class="quick-pos-btn" data-x="10" data-y="5" title="Top Left">↖</button>
+                    <button type="button" class="quick-pos-btn" data-x="50" data-y="5" title="Top Center">↑</button>
+                    <button type="button" class="quick-pos-btn" data-x="90" data-y="5" title="Top Right">↗</button>
+                    <button type="button" class="quick-pos-btn" data-x="10" data-y="50" title="Middle Left">←</button>
+                    <button type="button" class="quick-pos-btn" data-x="50" data-y="50" title="Center">●</button>
+                    <button type="button" class="quick-pos-btn" data-x="90" data-y="50" title="Middle Right">→</button>
+                    <button type="button" class="quick-pos-btn" data-x="10" data-y="85" title="Bottom Left">↙</button>
+                    <button type="button" class="quick-pos-btn" data-x="50" data-y="85" title="Bottom Center">↓</button>
+                    <button type="button" class="quick-pos-btn" data-x="90" data-y="85" title="Bottom Right">↘</button>
                 </div>
             </div>
 
-            <div class="clock-position-preview">
-                <div class="clock-preview" id="clockPreview" style="left: 50%; top: 20px;">12:34</div>
+            <div style="display: flex; justify-content: space-between; margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                <span style="color: #666;">Position: <strong id="positionDisplay">X: 50%, Y: 5%</strong></span>
+                <button type="button" id="resetClockPos" class="btn-small" style="background: #6b7280; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Reset to Default</button>
             </div>
+
             <div class="info-box">
-                <strong>💡 Tip:</strong> Adjust the X and Y values above to see the clock move in the preview. All viewers will see the clock in this position.
+                <strong>💡 Tip:</strong> Drag the clock anywhere on the preview, or click the position buttons for quick placement. The clock position uses percentages so it looks correct on all screen sizes.
             </div>
         </div>
 
@@ -561,41 +515,113 @@ if (empty($lower_thirds_presets)) {
 </div>
 
 <script>
-// Color picker handling
-const colorPicker = document.getElementById('ticker_color_picker');
-const colorPreview = document.getElementById('colorPreview');
-const colorValue = document.getElementById('colorValue');
+// Clock position - Draggable functionality
+const clockPreview = document.getElementById('clockPreview');
+const clockContainer = document.getElementById('clockPositionPreview');
+const xInput = document.getElementById('clock_position_x');
+const yInput = document.getElementById('clock_position_y');
+const positionDisplay = document.getElementById('positionDisplay');
 
-colorPicker.addEventListener('input', function() {
-    const color = this.value;
-    colorPreview.style.background = color;
-    colorValue.textContent = color;
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+// Initialize clock position
+function initClockPosition() {
+    const xPercent = parseFloat(xInput.value) || 50;
+    const yPercent = parseFloat(yInput.value) || 5;
+    setClockPosition(xPercent, yPercent);
+}
+
+function setClockPosition(xPercent, yPercent) {
+    // Clamp values
+    xPercent = Math.max(5, Math.min(95, xPercent));
+    yPercent = Math.max(3, Math.min(90, yPercent));
+
+    clockPreview.style.left = xPercent + '%';
+    clockPreview.style.top = yPercent + '%';
+    clockPreview.style.transform = 'translate(-50%, -50%)';
+
+    xInput.value = Math.round(xPercent);
+    yInput.value = Math.round(yPercent);
+    positionDisplay.textContent = `X: ${Math.round(xPercent)}%, Y: ${Math.round(yPercent)}%`;
+}
+
+// Mouse drag events
+clockPreview.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    clockPreview.style.cursor = 'grabbing';
+    e.preventDefault();
 });
 
-// Quick color presets
-document.querySelectorAll('.color-preset-mini').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const color = this.dataset.color;
-        colorPicker.value = color;
-        colorPreview.style.background = color;
-        colorValue.textContent = color;
+document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    const rect = clockContainer.getBoundingClientRect();
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+    setClockPosition(xPercent, yPercent);
+});
+
+document.addEventListener('mouseup', () => {
+    if (isDragging) {
+        isDragging = false;
+        clockPreview.style.cursor = 'grab';
+    }
+});
+
+// Touch drag events for mobile
+clockPreview.addEventListener('touchstart', (e) => {
+    isDragging = true;
+    e.preventDefault();
+});
+
+document.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+
+    const touch = e.touches[0];
+    const rect = clockContainer.getBoundingClientRect();
+    const xPercent = ((touch.clientX - rect.left) / rect.width) * 100;
+    const yPercent = ((touch.clientY - rect.top) / rect.height) * 100;
+
+    setClockPosition(xPercent, yPercent);
+});
+
+document.addEventListener('touchend', () => {
+    isDragging = false;
+});
+
+// Click on container to move clock
+clockContainer.addEventListener('click', (e) => {
+    if (e.target.closest('.quick-pos-btn') || e.target === clockPreview) return;
+
+    const rect = clockContainer.getBoundingClientRect();
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+    setClockPosition(xPercent, yPercent);
+});
+
+// Quick position buttons
+document.querySelectorAll('.quick-pos-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const x = parseFloat(this.dataset.x);
+        const y = parseFloat(this.dataset.y);
+        setClockPosition(x, y);
     });
 });
 
-// Clock position preview
-const clockPreview = document.getElementById('clockPreview');
-const xInput = document.getElementById('clock_position_x');
-const yInput = document.getElementById('clock_position_y');
+// Reset button
+document.getElementById('resetClockPos').addEventListener('click', function(e) {
+    e.preventDefault();
+    setClockPosition(50, 5); // Default: top center
+});
 
-function updateClockPreview() {
-    const x = parseInt(xInput.value) || 0;
-    const y = parseInt(yInput.value) || 0;
-    clockPreview.style.transform = `translate(${x}px, ${y}px) translateX(-50%)`;
-}
-
-xInput.addEventListener('input', updateClockPreview);
-yInput.addEventListener('input', updateClockPreview);
-updateClockPreview();
+// Initialize
+initClockPosition();
 
 // Add social badge row
 function addSocialBadge() {

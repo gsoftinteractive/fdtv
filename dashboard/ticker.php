@@ -55,6 +55,27 @@ if (isset($_POST['action']) && $_POST['action'] == 'set_ticker_type') {
     redirect('ticker.php?tab=' . $current_tab);
 }
 
+// Handle Update Ticker Style Settings
+if (isset($_POST['action']) && $_POST['action'] == 'update_ticker_style') {
+    if (verify_csrf_token($_POST['csrf_token'])) {
+        $ticker_color = $_POST['ticker_color'] ?? '#dc2626';
+        $ticker_label = strtoupper(substr(trim($_POST['ticker_label'] ?? 'BREAKING'), 0, 15));
+        $ticker_mode = $_POST['ticker_mode'] ?? 'single';
+        $ticker_speed = max(20, min(120, (int)($_POST['ticker_speed'] ?? 60)));
+
+        $stmt = $conn->prepare("UPDATE stations SET ticker_color = ?, ticker_label = ?, ticker_mode = ?, ticker_speed = ?, display_settings_updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$ticker_color, $ticker_label, $ticker_mode, $ticker_speed, $station_id]);
+
+        // Refresh station data
+        $stmt = $conn->prepare("SELECT * FROM stations WHERE id = ?");
+        $stmt->execute([$station_id]);
+        $station = $stmt->fetch();
+
+        set_flash("Ticker style settings updated successfully!", "success");
+    }
+    redirect('ticker.php?tab=' . $current_tab);
+}
+
 // Handle Add Breaking News Ticker
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_breaking'])) {
     if (verify_csrf_token($_POST['csrf_token'])) {
@@ -375,6 +396,107 @@ $event_icons = [
                     <?php echo clean($flash['message']); ?>
                 </div>
             <?php endif; ?>
+
+            <!-- Ticker Style Settings Card -->
+            <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border: 1px solid #374151;">
+                <div class="card-header" style="border-bottom: 1px solid #374151;">
+                    <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.25rem;">🎨</span> Ticker Style
+                    </h2>
+                    <span style="font-size: 0.75rem; color: #9ca3af;">These settings apply to ALL ticker types</span>
+                </div>
+
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="update_ticker_style">
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                        <!-- Color Picker -->
+                        <div class="form-group">
+                            <label style="color: #9ca3af; font-size: 0.875rem;">Color</label>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="color" id="tickerColorPicker" name="ticker_color"
+                                       value="<?php
+                                       $color_map = [
+                                           'red' => '#dc2626', 'purple' => '#7c3aed', 'green' => '#059669',
+                                           'blue' => '#2563eb', 'orange' => '#ea580c', 'pink' => '#db2777',
+                                           'teal' => '#0d9488', 'indigo' => '#4f46e5', 'yellow' => '#eab308',
+                                           'cyan' => '#06b6d4', 'rose' => '#f43f5e', 'black' => '#000000'
+                                       ];
+                                       $current_color = $station['ticker_color'] ?? 'red';
+                                       echo isset($color_map[$current_color]) ? $color_map[$current_color] : $current_color;
+                                       ?>"
+                                       style="width: 50px; height: 38px; border: none; border-radius: 6px; cursor: pointer;">
+                                <div id="tickerColorPreview" style="flex: 1; height: 38px; border-radius: 6px; background: <?php echo isset($color_map[$current_color]) ? $color_map[$current_color] : $current_color; ?>;"></div>
+                            </div>
+                            <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                                <?php foreach (['#dc2626', '#7c3aed', '#059669', '#2563eb', '#ea580c', '#eab308', '#06b6d4', '#000000'] as $c): ?>
+                                <button type="button" class="quick-color" data-color="<?php echo $c; ?>"
+                                        style="width: 24px; height: 24px; border-radius: 4px; border: 2px solid <?php echo ($color_map[$current_color] ?? $current_color) == $c ? '#fff' : 'transparent'; ?>; background: <?php echo $c; ?>; cursor: pointer;"></button>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <!-- Label -->
+                        <div class="form-group">
+                            <label style="color: #9ca3af; font-size: 0.875rem;">Label Text</label>
+                            <input type="text" name="ticker_label" value="<?php echo htmlspecialchars($station['ticker_label'] ?? 'BREAKING'); ?>"
+                                   maxlength="15" placeholder="BREAKING"
+                                   style="text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">
+                            <small style="color: #6b7280; font-size: 0.7rem;">Max 15 chars (e.g., BREAKING, NEWS, LIVE)</small>
+                        </div>
+
+                        <!-- Mode -->
+                        <div class="form-group">
+                            <label style="color: #9ca3af; font-size: 0.875rem;">Display Mode</label>
+                            <select name="ticker_mode">
+                                <option value="single" <?php echo ($station['ticker_mode'] ?? 'single') == 'single' ? 'selected' : ''; ?>>Single Line</option>
+                                <option value="double" <?php echo ($station['ticker_mode'] ?? 'single') == 'double' ? 'selected' : ''; ?>>Double Line</option>
+                            </select>
+                        </div>
+
+                        <!-- Speed -->
+                        <div class="form-group">
+                            <label style="color: #9ca3af; font-size: 0.875rem;">Scroll Speed</label>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="range" name="ticker_speed" id="tickerSpeedSlider" min="20" max="120" step="10"
+                                       value="<?php echo $station['ticker_speed'] ?? 60; ?>" style="flex: 1;">
+                                <span id="tickerSpeedValue" style="min-width: 40px; text-align: center; color: #9ca3af;"><?php echo $station['ticker_speed'] ?? 60; ?>s</span>
+                            </div>
+                            <small style="color: #6b7280; font-size: 0.7rem;">20 = Fast, 120 = Slow</small>
+                        </div>
+                    </div>
+
+                    <!-- Live Preview -->
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #374151;">
+                        <label style="color: #9ca3af; font-size: 0.875rem; display: block; margin-bottom: 0.5rem;">Live Preview</label>
+                        <div id="tickerPreviewContainer" style="background: #000; border-radius: 8px; overflow: hidden;">
+                            <div id="tickerPreviewBar" style="height: 44px; display: flex; align-items: stretch; background: <?php echo isset($color_map[$current_color]) ? $color_map[$current_color] : $current_color; ?>;">
+                                <div style="background: #000; display: flex; align-items: center; padding: 0 16px; flex-shrink: 0;">
+                                    <span id="tickerPreviewLabel" style="background: #fff; color: <?php echo isset($color_map[$current_color]) ? $color_map[$current_color] : $current_color; ?>; padding: 4px 10px; font-weight: 800; font-size: 0.75rem; letter-spacing: 1px;"><?php echo htmlspecialchars($station['ticker_label'] ?? 'BREAKING'); ?></span>
+                                </div>
+                                <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
+                                    <div id="tickerPreviewTrack" style="display: flex; animation: ticker-preview-scroll 30s linear infinite; white-space: nowrap;">
+                                        <span id="tickerPreviewText" style="color: #fff; font-weight: 600; font-size: 0.875rem; padding: 0 16px;">Welcome to your station! This is how your ticker will appear to viewers. ••• Breaking news and announcements scroll here. ••• </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <style>
+                        @keyframes ticker-preview-scroll {
+                            0% { transform: translateX(0); }
+                            100% { transform: translateX(-50%); }
+                        }
+                    </style>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; margin-top: 1rem; border-top: 1px solid #374151;">
+                        <button type="submit" class="btn btn-small" style="background: var(--primary);">Save Style</button>
+                        <span style="color: #6b7280; font-size: 0.75rem;">Changes apply to all viewers immediately</span>
+                    </div>
+                </form>
+            </div>
 
             <!-- Active Ticker Type Selector -->
             <div class="active-type-selector">
@@ -738,5 +860,86 @@ $event_icons = [
 
         </div>
     </div>
+<script>
+// Ticker Style Settings JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Elements
+    const colorPicker = document.getElementById('tickerColorPicker');
+    const colorPreview = document.getElementById('tickerColorPreview');
+    const quickColors = document.querySelectorAll('.quick-color');
+    const speedSlider = document.getElementById('tickerSpeedSlider');
+    const speedValue = document.getElementById('tickerSpeedValue');
+    const labelInput = document.querySelector('input[name="ticker_label"]');
+
+    // Preview elements
+    const previewBar = document.getElementById('tickerPreviewBar');
+    const previewLabel = document.getElementById('tickerPreviewLabel');
+    const previewTrack = document.getElementById('tickerPreviewTrack');
+
+    // Update preview function
+    function updatePreview() {
+        if (!previewBar) return;
+
+        const color = colorPicker ? colorPicker.value : '#dc2626';
+        const label = labelInput ? labelInput.value.toUpperCase() : 'BREAKING';
+        const speed = speedSlider ? speedSlider.value : 60;
+
+        // Update preview bar color
+        previewBar.style.background = color;
+
+        // Update label
+        if (previewLabel) {
+            previewLabel.textContent = label;
+            previewLabel.style.color = color;
+        }
+
+        // Update animation speed
+        if (previewTrack) {
+            previewTrack.style.animationDuration = speed + 's';
+        }
+    }
+
+    // Color picker functionality
+    if (colorPicker && colorPreview) {
+        colorPicker.addEventListener('input', function() {
+            colorPreview.style.background = this.value;
+            quickColors.forEach(btn => {
+                btn.style.borderColor = btn.dataset.color === this.value ? '#fff' : 'transparent';
+            });
+            updatePreview();
+        });
+    }
+
+    quickColors.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const color = this.dataset.color;
+            colorPicker.value = color;
+            colorPreview.style.background = color;
+            quickColors.forEach(b => {
+                b.style.borderColor = b === this ? '#fff' : 'transparent';
+            });
+            updatePreview();
+        });
+    });
+
+    // Speed slider value display
+    if (speedSlider && speedValue) {
+        speedSlider.addEventListener('input', function() {
+            speedValue.textContent = this.value + 's';
+            updatePreview();
+        });
+    }
+
+    // Label input
+    if (labelInput) {
+        labelInput.addEventListener('input', function() {
+            updatePreview();
+        });
+    }
+
+    // Initial preview update
+    updatePreview();
+});
+</script>
 </body>
 </html>

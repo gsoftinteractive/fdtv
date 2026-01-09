@@ -223,12 +223,13 @@ body {
     }
 }
 
-/* Time Display */
+/* Time Display - Position controlled by JavaScript (percentage-based) */
 .time-display {
     position: absolute;
-    top: 20px;
+    /* Default position - will be overridden by JS with percentage values */
+    top: 5%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     background: linear-gradient(135deg, rgba(124, 58, 237, 0.9) 0%, rgba(0, 0, 0, 0.9) 100%);
     padding: 10px 24px;
     border-radius: 8px;
@@ -240,7 +241,7 @@ body {
     backdrop-filter: blur(15px);
     cursor: default;
     user-select: none;
-    transition: all 0.3s ease;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
     border: 2px solid rgba(124, 58, 237, 0.5);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
 }
