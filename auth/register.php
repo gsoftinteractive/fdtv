@@ -75,29 +75,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if (empty($errors)) {
             $password_hash = password_hash($password, PASSWORD_ARGON2ID);
 
-            // New users start with 0 coins and active status
-            $stmt = $conn->prepare("INSERT INTO users (company_name, email, phone, password, station_name, station_slug, status, coins) VALUES (?, ?, ?, ?, ?, ?, 'active', 0)");
+            // New users start with 100 free coins and active status
+            $free_coins = 100;
+            $stmt = $conn->prepare("INSERT INTO users (company_name, email, phone, password, station_name, station_slug, status, coins) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)");
 
-            if ($stmt->execute([$company_name, $email, $phone, $password_hash, $station_name, $station_slug])) {
+            if ($stmt->execute([$company_name, $email, $phone, $password_hash, $station_name, $station_slug, $free_coins])) {
 
                 // Send welcome email
                 $message = "
                     <h2>Welcome to FDTV!</h2>
                     <p>Thank you for registering, $company_name.</p>
                     <p>Your desired station name: <strong>$station_name</strong></p>
+                    <p><strong>🎉 You have received 100 FREE coins to get started!</strong></p>
                     <p><strong>Next Steps:</strong></p>
                     <ol>
                         <li>Login to your dashboard</li>
-                        <li>Purchase coins (starting from ₦5,000 for 500 coins)</li>
-                        <li>Create your station (costs 100 coins)</li>
-                        <li>Start uploading and broadcasting!</li>
+                        <li>Create your station (costs 100 coins - use your free coins!)</li>
+                        <li>Start uploading videos and broadcasting!</li>
+                        <li>Need more coins? Purchase starting from ₦5,000 for 500 coins</li>
                     </ol>
-                    <p>You only pay for what you use - fair pricing for everyone!</p>
+                    <p>You only pay for what you use - larger files cost more coins!</p>
                     <p><a href='" . SITE_URL . "/auth/login.php'>Login Now</a></p>
                 ";
                 send_email($email, "Welcome to FDTV", $message);
 
-                $success = "Registration successful! Login and purchase coins to create your station.";
+                $success = "Registration successful! You've received 100 FREE coins. Login to create your station!";
             } else {
                 $errors[] = "Registration failed. Please try again.";
             }

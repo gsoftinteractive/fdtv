@@ -9,8 +9,12 @@ define('STREAM_PATH', BASE_PATH . '/streams/');
 
 // File limits
 define('MAX_VIDEOS_PER_CLIENT', 20);
-define('MAX_FILE_SIZE', 524288000); // 500MB in bytes
+// No file size limit - pricing is based on file size
 define('ALLOWED_VIDEO_TYPES', ['video/mp4', 'video/x-matroska', 'video/avi']);
+
+// Coin pricing for video uploads (dynamic based on file size)
+define('VIDEO_UPLOAD_BASE_COINS', 10);      // Base cost for any upload
+define('VIDEO_UPLOAD_COINS_PER_100MB', 5);  // Additional coins per 100MB
 
 // Session settings
 ini_set('session.cookie_httponly', 1);

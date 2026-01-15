@@ -94,14 +94,29 @@ function handleInit($station_id, $video_count) {
         echo json_encode(['success' => false, 'error' => 'Filename and title are required']);
         return;
     }
-    
-    // Validate file size (500MB max)
-    $max_size = 524288000; // 500MB
-    if ($filesize > $max_size) {
-        echo json_encode(['success' => false, 'error' => 'File too large. Maximum size is 500MB']);
+
+    // Calculate coin cost based on file size
+    $coin_cost = calculateUploadCost($filesize);
+
+    // Get database connection for coin check
+    global $conn;
+
+    // Get current user coin balance
+    $stmt = $conn->prepare("SELECT coins FROM users WHERE id = (SELECT user_id FROM stations WHERE id = ?)");
+    $stmt->execute([$station_id]);
+    $user_data = $stmt->fetch();
+    $current_balance = $user_data ? (int)$user_data['coins'] : 0;
+
+    // Check if user has enough coins before starting upload
+    if ($current_balance < $coin_cost) {
+        $file_size_mb = round($filesize / (1024 * 1024), 1);
+        echo json_encode([
+            'success' => false,
+            'error' => "Insufficient coins to upload this file ({$file_size_mb} MB). Cost: {$coin_cost} coins. Your balance: {$current_balance} coins. Please purchase more coins to continue."
+        ]);
         return;
     }
-    
+
     // Validate file extension
     $allowed_extensions = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'wmv'];
     $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
@@ -290,11 +305,9 @@ function handleFinalize($station_id, $conn) {
         $content_type = isset($metadata['content_type']) ? $metadata['content_type'] : 'regular';
         $priority = isset($metadata['priority']) ? $metadata['priority'] : 3;
 
-        // Get current coin pricing
-        $stmt = $conn->prepare("SELECT coins_required FROM coin_pricing WHERE action_type = 'video_upload' LIMIT 1");
-        $stmt->execute();
-        $pricing = $stmt->fetch();
-        $video_upload_cost = $pricing ? (int)$pricing['coins_required'] : 10;
+        // Calculate dynamic coin cost based on file size
+        $video_upload_cost = calculateUploadCost($final_size);
+        $file_size_mb = round($final_size / (1024 * 1024), 1);
 
         // Get current user coin balance
         $stmt = $conn->prepare("SELECT coins FROM users WHERE id = (SELECT user_id FROM stations WHERE id = ?)");
@@ -307,7 +320,7 @@ function handleFinalize($station_id, $conn) {
             unlink($final_path);
             echo json_encode([
                 'success' => false,
-                'error' => "Insufficient coins. You need {$video_upload_cost} coins to upload a video. Current balance: {$current_balance} coins."
+                'error' => "Insufficient coins to upload this file ({$file_size_mb} MB). Cost: {$video_upload_cost} coins. Your balance: {$current_balance} coins."
             ]);
             return;
         }
@@ -334,7 +347,7 @@ function handleFinalize($station_id, $conn) {
         $stmt->execute([
             $station_id,
             $video_upload_cost,
-            "Video upload: {$metadata['title']} (Video #{$video_id})",
+            "Video upload: {$metadata['title']} ({$file_size_mb} MB) - Video #{$video_id}",
             $balance_before,
             $balance_after,
             'VID_' . $video_id
@@ -350,9 +363,10 @@ function handleFinalize($station_id, $conn) {
             'success' => true,
             'video_id' => $video_id,
             'filename' => $safe_filename,
+            'file_size_mb' => $file_size_mb,
             'coins_deducted' => $video_upload_cost,
             'new_balance' => $balance_after,
-            'message' => 'Video uploaded successfully! ' . $video_upload_cost . ' coins deducted.'
+            'message' => "Video uploaded successfully! {$video_upload_cost} coins deducted for {$file_size_mb} MB file."
         ]);
 
     } catch (Exception $e) {
@@ -439,7 +453,22 @@ function getUploadErrorMessage($error_code) {
         UPLOAD_ERR_CANT_WRITE => 'Failed to write to disk',
         UPLOAD_ERR_EXTENSION => 'Upload stopped by extension'
     ];
-    
+
     return isset($errors[$error_code]) ? $errors[$error_code] : 'Unknown upload error';
+}
+
+/**
+ * Calculate upload cost based on file size
+ * Base cost + additional cost per 100MB
+ */
+function calculateUploadCost($filesize) {
+    $base_cost = defined('VIDEO_UPLOAD_BASE_COINS') ? VIDEO_UPLOAD_BASE_COINS : 10;
+    $per_100mb = defined('VIDEO_UPLOAD_COINS_PER_100MB') ? VIDEO_UPLOAD_COINS_PER_100MB : 5;
+
+    // Calculate additional cost based on file size (in 100MB increments)
+    $size_in_100mb = ceil($filesize / (100 * 1024 * 1024));
+    $additional_cost = $size_in_100mb * $per_100mb;
+
+    return $base_cost + $additional_cost;
 }
 ?>

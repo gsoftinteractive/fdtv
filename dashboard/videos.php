@@ -140,7 +140,7 @@ $csrf_token = generate_csrf_token();
                             <p class="drop-zone-subtext">or</p>
                             <button type="button" class="btn" id="selectFileBtn">Select Video File</button>
                             <input type="file" id="videoInput" accept="video/*" hidden>
-                            <p class="drop-zone-info">Max: 500MB | Allowed: MP4, MKV, AVI, MOV, WebM</p>
+                            <p class="drop-zone-info">No size limit - Larger files cost more coins | Allowed: MP4, MKV, AVI, MOV, WebM</p>
                         </div>
                     </div>
 
@@ -450,12 +450,8 @@ $csrf_token = generate_csrf_token();
                 return;
             }
 
-            // Validate file size (500MB)
-            const maxSize = 500 * 1024 * 1024;
-            if (file.size > maxSize) {
-                alert('File too large. Maximum size is 500MB.');
-                return;
-            }
+            // No file size limit - cost is calculated based on file size
+            // Server will validate if user has enough coins
 
             selectedFile = file;
             fileName.textContent = file.name;
@@ -575,7 +571,11 @@ $csrf_token = generate_csrf_token();
         function handleSuccess(result) {
             uploadProgress.style.display = 'none';
             uploadSuccess.style.display = 'block';
-            successMessage.textContent = `"${result.filename}" has been uploaded successfully!`;
+            let message = `"${result.filename}" has been uploaded successfully!`;
+            if (result.coins_deducted) {
+                message += ` ${result.coins_deducted} coins deducted. New balance: ${result.new_balance} coins.`;
+            }
+            successMessage.textContent = message;
         }
 
         // Error handler
